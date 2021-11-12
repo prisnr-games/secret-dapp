@@ -30,7 +30,7 @@ pub enum RoundResult {
     Abstain,
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Hash, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Color {
     Red,
@@ -39,7 +39,7 @@ pub enum Color {
     Black,
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Hash, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Shape {
     Triangle,

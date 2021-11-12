@@ -1,6 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{Binary, Coin, HumanAddr, StdError, StdResult, Uint128};
+use cosmwasm_std::{Coin, HumanAddr,};
 use secret_toolkit::permit::Permit;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -33,12 +33,12 @@ pub enum HandleMsg {
     },
 
     Guess {
-        // one of {"bag", "opponent"}
+        // one of {"bag", "opponent", "abstain"}
         target: String,
-        // one of {"triangle", "square", "circle", "star"}
-        shape: String,
-        // one of {"red", "green", "blue", "black"}
-        color: String,
+        // one of {"triangle", "square", "circle", "star"} or None if "abstain"
+        shape: Option<String>,
+        // one of {"red", "green", "blue", "black"} or None if "abstain"
+        color: Option<String>,
         padding: Option<String>,
     },
 
@@ -96,16 +96,13 @@ pub enum QueryWithPermit {
     PlayerStats {},
 }
 
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CountResponse {
-    pub count: i32,
-}
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     GameState {
+        info: String // TODO:
+    },
+    PlayerStats {
         info: String // TODO:
     },
 }

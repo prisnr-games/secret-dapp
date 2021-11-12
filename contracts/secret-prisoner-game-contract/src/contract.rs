@@ -1,29 +1,42 @@
 use cosmwasm_std::{
     //debug_print, 
-    to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, InitResponse, Querier,
+    to_binary, Api, Binary, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
     StdError, StdResult, Storage,
 };
+use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
 
-use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
 use crate::random::{supply_more_entropy};
-use crate::state::{config, config_read, State};
+use crate::state::{set_config, get_config};
+
+/// We make sure that responses from `handle` are padded to a multiple of this size.
+pub const RESPONSE_BLOCK_SIZE: usize = 256;
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-
-
-    let state = State {
-        admin: deps.api.canonical_address(&env.message.sender)?,
-    };
-
-    config(&mut deps.storage).save(&state)?;
+    set_config(
+        &mut deps.storage, 
+        deps.api.canonical_address(&env.message.sender)?, 
+        deps.api.canonical_address(&env.contract.address)?,
+    )?;
 
     //debug_print!("Contract was initialized by {}", env.message.sender);
 
     Ok(InitResponse::default())
+}
+
+fn pad_response(response: StdResult<HandleResponse>) -> StdResult<HandleResponse> {
+    response.map(|mut response| {
+        response.data = response.data.map(|mut data| {
+            space_pad(RESPONSE_BLOCK_SIZE, &mut data.0);
+            data
+        });
+        response
+    })
 }
 
 pub fn handle<S: Storage, A: Api, Q: Querier>(
@@ -35,41 +48,64 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     fresh_entropy.extend(to_binary(&env)?.0);
     supply_more_entropy(&mut deps.storage, fresh_entropy.as_slice())?;
 
-    match msg {
-        HandleMsg::Increment {} => try_increment(deps, env),
-        HandleMsg::Reset { count } => try_reset(deps, env, count),
-    }
+    let response = match msg {
+        HandleMsg::Join { stakes, .. } => try_join(deps, env, stakes),
+        HandleMsg::Submit { target, color, shape, .. } => try_submit(deps, env, target, color, shape),
+        HandleMsg::Guess { target, color, shape, .. } => try_guess(deps, env, target, color, shape),
+        HandleMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, env, permit_name),
+    };
+
+    pad_response(response)
 }
 
-pub fn try_increment<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-) -> StdResult<HandleResponse> {
-    config(&mut deps.storage).update(|mut state| {
-        state.count += 1;
-        //debug_print!("count = {}", state.count);
-        Ok(state)
-    })?;
-
-    //debug_print("count incremented successfully");
-    Ok(HandleResponse::default())
-}
-
-pub fn try_reset<S: Storage, A: Api, Q: Querier>(
+pub fn try_join<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    count: i32,
+    stakes: Option<String>,
 ) -> StdResult<HandleResponse> {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    config(&mut deps.storage).update(|mut state| {
-        if sender_address_raw != state.owner {
-            return Err(StdError::Unauthorized { backtrace: None });
-        }
-        state.count = count;
-        Ok(state)
-    })?;
-    //debug_print("count reset successfully");
     Ok(HandleResponse::default())
+}
+
+pub fn try_submit<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    target: String,
+    color: String,
+    shape: String,
+) -> StdResult<HandleResponse> {
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    Ok(HandleResponse::default())
+}
+
+pub fn try_guess<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    target: String,
+    color: Option<String>,
+    shape: Option<String>,
+) -> StdResult<HandleResponse> {
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    Ok(HandleResponse::default())
+}
+
+fn revoke_permit<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    permit_name: String,
+) -> StdResult<HandleResponse> {
+    RevokedPermits::revoke_permit(
+        &mut deps.storage,
+        PREFIX_REVOKED_PERMITS,
+        &env.message.sender,
+        &permit_name,
+    );
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::RevokePermit { status: Success })?),
+    })
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
@@ -77,15 +113,68 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetCount {} => to_binary(&query_count(deps)?),
+        QueryMsg::WithPermit { permit, query } => permit_queries(deps, permit, query),
     }
 }
 
-fn query_count<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<CountResponse> {
-    let state = config_read(&deps.storage).load()?;
-    Ok(CountResponse { count: state.count })
+fn permit_queries<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    permit: Permit,
+    query: QueryWithPermit,
+) -> Result<Binary, StdError> {
+    // Validate permit content
+    let token_address = deps.api.human_address(
+        &get_config(&deps.storage)?.contract_address
+    )?;
+
+    let account = validate(deps, PREFIX_REVOKED_PERMITS, &permit, token_address)?;
+
+    // Permit validated! We can now execute the query.
+    match query {
+        QueryWithPermit::GameState {} => {
+            if !permit.check_permission(&Permission::Owner) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query game state, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            query_game_state(deps, &account)
+        }
+        QueryWithPermit::PlayerStats {} => {
+            if !permit.check_permission(&Permission::Owner) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query player stats, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            query_player_stats(deps, &account)
+        }
+    }
 }
 
+fn query_game_state<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    account: &HumanAddr,
+) -> StdResult<Binary> {
+    let response = QueryAnswer::GameState {
+        info: "TODO".to_string()
+    };
+    to_binary(&response)
+}
+
+fn query_player_stats<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    account: &HumanAddr,
+) -> StdResult<Binary> {
+    let response = QueryAnswer::PlayerStats {
+        info: "TODO".to_string()
+    };
+    to_binary(&response)
+}
+
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,3 +245,4 @@ mod tests {
         assert_eq!(5, value.count);
     }
 }
+*/
