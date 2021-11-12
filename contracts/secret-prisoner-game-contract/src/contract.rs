@@ -1,10 +1,11 @@
 use cosmwasm_std::{
     //debug_print, 
-    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
+    to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, InitResponse, Querier,
     StdError, StdResult, Storage,
 };
 
 use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
+use crate::random::{supply_more_entropy};
 use crate::state::{config, config_read, State};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -12,9 +13,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
+
+
     let state = State {
-        count: msg.count,
-        owner: deps.api.canonical_address(&env.message.sender)?,
+        admin: deps.api.canonical_address(&env.message.sender)?,
     };
 
     config(&mut deps.storage).save(&state)?;
@@ -29,6 +31,10 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
+    let mut fresh_entropy = to_binary(&msg)?.0;
+    fresh_entropy.extend(to_binary(&env)?.0);
+    supply_more_entropy(&mut deps.storage, fresh_entropy.as_slice())?;
+
     match msg {
         HandleMsg::Increment {} => try_increment(deps, env),
         HandleMsg::Reset { count } => try_reset(deps, env, count),

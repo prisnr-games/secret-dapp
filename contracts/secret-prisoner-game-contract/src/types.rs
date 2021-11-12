@@ -4,16 +4,30 @@ use serde::{Deserialize, Serialize};
 #[repr(u8)]
 pub enum GameStage {
     Initialized,
+    Ongoing,
+    Ended,
+}
+
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum RoundStage {
+    Initialized,
     OnePlayerFirstSubmit,
     BothPlayersFirstSubmit,
     OnePlayerSecondSubmit,
     BothPlayersSecondSubmit,
     OnePlayerGuess,
     Ended,
-    ABagCorrectBBagCorrect,
-    ABagCorrectBBagWrong,
-    ABagCorrectBOpponentCorrect,
-    ABagCorrectBOpponentWrong,
+}
+
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum RoundResult {
+    BagCorrect,
+    BagWrong,
+    OpponentCorrect,
+    OpponentWrong,
+    Abstain,
 }
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
