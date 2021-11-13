@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GameStage {
-    Initialized,
+    WaitingForSecondPlayer,
     Ongoing,
-    Ended,
+    Finished,
 }
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -17,7 +17,7 @@ pub enum RoundStage {
     OnePlayerSecondSubmit,
     BothPlayersSecondSubmit,
     OnePlayerGuess,
-    Ended,
+    Finished,
 }
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -50,8 +50,8 @@ pub enum Shape {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Chip {
-    color: Color,
-    shape: Shape,
+    pub color: Color,
+    pub shape: Shape,
 }
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]

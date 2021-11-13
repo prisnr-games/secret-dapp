@@ -7,9 +7,9 @@ use secret_toolkit::permit::Permit;
 pub struct InitMsg {
     pub admin: Option<HumanAddr>,
     pub rounds_per_game: u8,
-    pub low_stakes: Coin,
-    pub medium_stakes: Coin,
-    pub high_stakes: Coin,
+    //pub low_stakes: Coin,
+    //pub medium_stakes: Coin,
+    //pub high_stakes: Coin,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -18,7 +18,7 @@ pub enum HandleMsg {
     // Join a new game
     Join {
         // one of {"low", "medium", "high"} or None means no money bet
-        stakes: Option<String>,
+        //stakes: Option<String>,
         padding: Option<String>, 
     },
 
@@ -39,6 +39,10 @@ pub enum HandleMsg {
         shape: Option<String>,
         // one of {"red", "green", "blue", "black"} or None if "abstain"
         color: Option<String>,
+        padding: Option<String>,
+    },
+
+    Forfeit {
         padding: Option<String>,
     },
 
@@ -68,6 +72,10 @@ pub enum HandleAnswer {
     },
 
     Guess {
+        status: ResponseStatus,
+    },
+
+    Forfeit {
         status: ResponseStatus,
     },
 

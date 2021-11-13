@@ -7,7 +7,10 @@ use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
 
 use crate::msg::{QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
 use crate::random::{supply_more_entropy};
-use crate::state::{set_config, get_config};
+use crate::state::{
+    create_new_game, set_config, get_config, get_current_game, get_game_state, is_game_waiting_for_second_player, get_number_of_games,
+    GameState, create_new_round, update_game_state,
+};
 
 /// We make sure that responses from `handle` are padded to a multiple of this size.
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
@@ -49,9 +52,13 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     supply_more_entropy(&mut deps.storage, fresh_entropy.as_slice())?;
 
     let response = match msg {
-        HandleMsg::Join { stakes, .. } => try_join(deps, env, stakes),
+        HandleMsg::Join { 
+            //stakes, 
+            .. 
+        } => try_join(deps, env,),
         HandleMsg::Submit { target, color, shape, .. } => try_submit(deps, env, target, color, shape),
         HandleMsg::Guess { target, color, shape, .. } => try_guess(deps, env, target, color, shape),
+        HandleMsg::Forfeit { .. } => try_forfeit(deps, env),
         HandleMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, env, permit_name),
     };
 
@@ -61,10 +68,47 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 pub fn try_join<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    stakes: Option<String>,
+    //stakes: Option<String>,
 ) -> StdResult<HandleResponse> {
-    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    Ok(HandleResponse::default())
+    let player = deps.api.canonical_address(&env.message.sender)?;
+
+    // check if already in ongoing game, if yes throw error (only one game at a time allowed)
+    if get_current_game(&deps.storage, &player).is_some() {
+        return Err(StdError::generic_err("Finish current game before beginning a new one"));
+    }
+
+    let number_of_games = get_number_of_games(&deps.storage)?;
+    let game_ready: bool;
+    let mut game_state: Option<GameState> = None;
+
+    // check if a new game needs to be created
+    if number_of_games == 0 {
+        game_ready = false;
+    } else {
+        let current_game_state = get_game_state(&deps.storage, number_of_games - 1)?;
+        game_ready = current_game_state.player_b.is_none();
+        game_state = Some(current_game_state);
+    }
+    
+    if !game_ready {
+        // if yes: create a new game state with player_a
+        create_new_game(&mut deps.storage, &player)?;
+    } else {
+        // if no: add player_b to waiting game_state, create first round and assign chips
+        let mut game_state = game_state.unwrap();
+        game_state.player_b = Some(player);
+        // TODO: add player wager parameters
+        let new_round = create_new_round(&deps.storage, None, None)?;
+        game_state.round_state = Some(new_round);
+        game_state.round = 1_u8;
+        update_game_state(&mut deps.storage, number_of_games - 1, &game_state)?;
+    }
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Join { status: Success })?),
+    })
 }
 
 pub fn try_submit<S: Storage, A: Api, Q: Querier>(
@@ -84,6 +128,14 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
     target: String,
     color: Option<String>,
     shape: Option<String>,
+) -> StdResult<HandleResponse> {
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    Ok(HandleResponse::default())
+}
+
+pub fn try_forfeit<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
 ) -> StdResult<HandleResponse> {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     Ok(HandleResponse::default())

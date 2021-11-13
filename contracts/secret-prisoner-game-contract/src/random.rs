@@ -1,5 +1,5 @@
 use std::collections::{HashSet, HashMap};
-use cosmwasm_std::{StdResult, Storage};
+use cosmwasm_std::{StdResult, StdError, Storage};
 use cosmwasm_storage::{ReadonlySingleton, Singleton};
 
 use rand::{RngCore, SeedableRng};
@@ -34,9 +34,9 @@ pub fn supply_more_entropy<S: Storage>(
     Singleton::new(storage, KEY_ENTROPY_POOL).save(&new_entropy_pool)
 }
 
-pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>) -> Option<Color> {
+pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>) -> StdResult<Option<Color>> {
     if color_options.len() == 0 {
-        return None;
+        return Err(StdError::generic_err("No color options when picking a random color"));
     }
 
     let color_percentage_map: HashMap<Color, u64> = [
@@ -52,7 +52,7 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>)
             total = total + pct;
         } else {
             // error, using invalid color
-            return None;
+            return Err(StdError::generic_err("Invalid color in color options when picking a random color"));
         }
     }
 
@@ -73,12 +73,12 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>)
     if picked_index.is_some() {
         color_options.swap_remove(picked_index.unwrap());
     }
-    picked_color
+    Ok(picked_color)
 }
 
-pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>) -> Option<Shape> {
+pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>) -> StdResult<Option<Shape>> {
     if shape_options.len() == 0 {
-        return None;
+        return Err(StdError::generic_err("No shape options when picking a random shape"));
     }
 
     let shape_percentage_map: HashMap<Shape, u64> = [
@@ -93,8 +93,8 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>)
         if let Some(pct) = shape_percentage_map.get(shape) {
             total = total + pct;
         } else {
-            // error, using invalid color
-            return None;
+            // error, using invalid shape
+            return Err(StdError::generic_err("Invalid shape in shape options when picking a random shape"));
         }
     }
 
@@ -115,7 +115,7 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>)
     if picked_index.is_some() {
         shape_options.swap_remove(picked_index.unwrap());
     }
-    picked_shape
+    Ok(picked_shape)
 }
 
 pub fn get_random_number<S: Storage>(storage: &S) -> u64 {
