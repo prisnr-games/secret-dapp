@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     //debug_print, 
-    to_binary, Api, Binary, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
+    to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
     StdError, StdResult, Storage,
 };
 use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
@@ -505,12 +505,199 @@ fn permit_queries<S: Storage, A: Api, Q: Querier>(
     }
 }
 
+fn color_to_string(color: Color) -> String {
+    match color {
+        Color::Red => "red".to_string(),
+        Color::Green => "green".to_string(),
+        Color::Blue => "blue".to_string(),
+        Color::Black => "black".to_string(),
+    }
+}
+
+fn shape_to_string(shape: Shape) -> String {
+    match shape {
+        Shape::Triangle => "triangle".to_string(),
+        Shape::Square => "square".to_string(),
+        Shape::Circle => "circle".to_string(),
+        Shape::Star => "star".to_string(),
+    }
+}
+
+fn hint_to_string(hint: Hint) -> String {
+    match hint {
+        Hint::BagNotRed => "bag_not|red".to_string(),
+        Hint::BagNotGreen => "bag_not|green".to_string(),
+        Hint::BagNotBlue => "bag_not|blue".to_string(),
+        Hint::BagNotBlack => "bag_not|black".to_string(),
+        Hint::BagNotTriangle => "bag_not|triangle".to_string(),
+        Hint::BagNotSquare => "bag_not|square".to_string(),
+        Hint::BagNotCircle => "bag_not|circle".to_string(),
+        Hint::BagNotStar => "bag_not|star".to_string(),
+        Hint::IHaveRed => "i_have|red".to_string(),
+        Hint::IHaveGreen => "i_have|green".to_string(),
+        Hint::IHaveBlue => "i_have|blue".to_string(),
+        Hint::IHaveBlack => "i_have|black".to_string(),
+        Hint::IHaveTriangle => "i_have|triangle".to_string(),
+        Hint::IHaveSquare => "i_have|square".to_string(),
+        Hint::IHaveCircle => "i_have|circle".to_string(),
+        Hint::IHaveStar => "i_have|star".to_string(),
+    }
+}
+
+fn target_to_string(target: Target) -> String {
+    match target {
+        Target::Abstain => "abstain".to_string(),
+        Target::Bag => "bag".to_string(),
+        Target::Opponent => "opponent".to_string(),
+    }
+}
+
+fn guess_to_string(guess: Guess) -> String {
+    let target_str = target_to_string(guess.target);
+    let mut color_str = "".to_string();
+    let mut shape_str = "".to_string();
+    if guess.color.is_some() {
+        color_str = color_to_string(guess.color.unwrap());
+    }
+    if guess.shape.is_some() {
+        shape_str = shape_to_string(guess.shape.unwrap());
+    }
+    let guess_str = format!("{}|{}|{}", target_str, color_str, shape_str);
+    guess_str
+}
+
+fn round_result_to_string(round_result: RoundResult) -> String {
+    match round_result {
+        RoundResult::BagCorrect => "bag|correct".to_string(),
+        RoundResult::BagWrong => "bag|wrong".to_string(),
+        RoundResult::OpponentCorrect => "opponent|correct".to_string(),
+        RoundResult::OpponentWrong => "opponent|wrong".to_string(),
+        RoundResult::Abstain => "abstain".to_string(),
+    }
+}
+
 fn query_game_state<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     account: &HumanAddr,
 ) -> StdResult<Binary> {
+    let player = deps.api.canonical_address(account)?;
+
+    let mut round: Option<u8> = None;
+    let mut wager: Option<Coin> = None;
+    let mut chip_color: Option<String> = None;
+    let mut chip_shape: Option<String> = None;
+    let mut hint: Option<String> = None;
+    let mut first_submit: Option<String> = None;
+    let mut second_submit: Option<String> = None;
+    let mut opponent_first_submit: Option<String> = None;
+    let mut opponent_second_submit: Option<String> = None;
+    let mut guess: Option<String> = None;
+    let mut opponent_guess: Option<String> = None;
+    let mut round_result: Option<String> = None;
+    let mut opponent_round_result: Option<String> = None;
+    let mut finished: Option<bool> = None;
+
+    let current_game = get_current_game(&deps.storage, &player);
+    if current_game.is_some() {
+        let game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+        if player == game_state.player_a {
+            round = Some(game_state.round);
+            finished = Some(game_state.finished);
+            if game_state.round_state.is_some() {
+                let round_state = game_state.round_state.unwrap();
+                wager = round_state.player_a_wager;
+                let chip = round_state.player_a_chip;
+                chip_color = Some(color_to_string(chip.color));
+                chip_shape = Some(shape_to_string(chip.shape));
+                let initial_hint = round_state.player_a_first_hint;
+                hint = Some(hint_to_string(initial_hint));
+                if round_state.player_a_first_submit.is_some() {
+                    first_submit = Some(hint_to_string(round_state.player_a_first_submit.unwrap()));
+                    // player cannot see opponent's submission until made own submission
+                    if round_state.player_b_first_submit.is_some() {
+                        opponent_first_submit = Some(hint_to_string(round_state.player_b_first_submit.unwrap()));
+                    }
+                }
+                if round_state.player_a_second_submit.is_some() {
+                    second_submit = Some(hint_to_string(round_state.player_a_second_submit.unwrap()));
+                    // player cannot see opponent's submission until made own submission
+                    if round_state.player_b_second_submit.is_some() {
+                        opponent_second_submit = Some(hint_to_string(round_state.player_b_second_submit.unwrap()));
+                    }
+                }
+                if round_state.player_a_guess.is_some() {
+                    guess = Some(guess_to_string(round_state.player_a_guess.unwrap()));
+                    // player cannot see opponent's guess until made own guess
+                    if round_state.player_b_guess.is_some() {
+                        opponent_guess = Some(guess_to_string(round_state.player_b_guess.unwrap()));
+                    }
+                }
+                if round_state.player_a_round_result.is_some() {
+                    round_result = Some(round_result_to_string(round_state.player_a_round_result.unwrap()));
+                    // player cannot see opponent's round result until own round result if available
+                    if round_state.player_b_round_result.is_some() {
+                        opponent_round_result = Some(round_result_to_string(round_state.player_b_round_result.unwrap()));
+                    }
+                }
+            }
+        } else if player == game_state.player_b.unwrap() {
+            round = Some(game_state.round);
+            finished = Some(game_state.finished);
+            if game_state.round_state.is_some() {
+                let round_state = game_state.round_state.unwrap();
+                wager = round_state.player_b_wager;
+                let chip = round_state.player_b_chip;
+                chip_color = Some(color_to_string(chip.color));
+                chip_shape = Some(shape_to_string(chip.shape));
+                let initial_hint = round_state.player_b_first_hint;
+                hint = Some(hint_to_string(initial_hint));
+                if round_state.player_b_first_submit.is_some() {
+                    first_submit = Some(hint_to_string(round_state.player_b_first_submit.unwrap()));
+                    // player cannot see opponent's submission until made own submission
+                    if round_state.player_a_first_submit.is_some() {
+                        opponent_first_submit = Some(hint_to_string(round_state.player_a_first_submit.unwrap()));
+                    }
+                }
+                if round_state.player_b_second_submit.is_some() {
+                    second_submit = Some(hint_to_string(round_state.player_b_second_submit.unwrap()));
+                    // player cannot see opponent's submission until made own submission
+                    if round_state.player_a_second_submit.is_some() {
+                        opponent_second_submit = Some(hint_to_string(round_state.player_a_second_submit.unwrap()));
+                    }
+                }
+                if round_state.player_b_guess.is_some() {
+                    guess = Some(guess_to_string(round_state.player_b_guess.unwrap()));
+                    // player cannot see opponent's guess until made own guess
+                    if round_state.player_a_guess.is_some() {
+                        opponent_guess = Some(guess_to_string(round_state.player_a_guess.unwrap()));
+                    }
+                }
+                if round_state.player_b_round_result.is_some() {
+                    round_result = Some(round_result_to_string(round_state.player_b_round_result.unwrap()));
+                    // player cannot see opponent's round result until own round result if available
+                    if round_state.player_a_round_result.is_some() {
+                        opponent_round_result = Some(round_result_to_string(round_state.player_a_round_result.unwrap()));
+                    }
+                }
+            }
+        }
+    }
+
     let response = QueryAnswer::GameState {
-        info: "TODO".to_string()
+        round,
+        wager,
+        chip_color,
+        chip_shape,
+        hint,
+        first_submit,
+        second_submit,
+        opponent_first_submit,
+        opponent_second_submit,
+        guess,
+        opponent_guess,
+        round_result,
+        opponent_round_result,
+        finished,
     };
     to_binary(&response)
 }

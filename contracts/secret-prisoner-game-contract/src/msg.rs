@@ -108,7 +108,20 @@ pub enum QueryWithPermit {
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     GameState {
-        info: String // TODO:
+        round: Option<u8>,
+        wager: Option<Coin>,
+        chip_color: Option<String>,
+        chip_shape: Option<String>,
+        hint: Option<String>,
+        first_submit: Option<String>,
+        second_submit: Option<String>,
+        opponent_first_submit: Option<String>,
+        opponent_second_submit: Option<String>,
+        guess: Option<String>,
+        opponent_guess: Option<String>,
+        round_result: Option<String>,
+        opponent_round_result: Option<String>,
+        finished: Option<bool>,
     },
     PlayerStats {
         info: String // TODO:
