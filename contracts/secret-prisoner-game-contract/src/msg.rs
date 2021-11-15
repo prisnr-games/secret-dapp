@@ -26,9 +26,9 @@ pub enum HandleMsg {
         // one of {"i_have", "bag_not"}
         target: String,
         // one of {"triangle", "square", "circle", "star"}
-        shape: String,
+        shape: Option<String>,
         // one of {"red", "green", "blue", "black"}
-        color: String,
+        color: Option<String>,
         padding: Option<String>, 
     },
 

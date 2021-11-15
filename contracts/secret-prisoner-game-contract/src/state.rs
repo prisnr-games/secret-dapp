@@ -8,7 +8,7 @@ use cosmwasm_std::{
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
 use crate::types::{Color, Shape, Chip, GameStage, RoundResult, RoundStage, Guess, Hint};
-use crate::random::{get_random_color, get_random_shape};
+use crate::random::{get_random_color, get_random_shape, get_random_number};
 
 pub static CONFIG_KEY: &[u8] = b"config";
 pub static GAME_PREFIX: &[u8] = b"game";
@@ -50,11 +50,14 @@ pub struct RoundState {
     pub player_a_chip: Chip,
     pub player_b_chip: Chip,
 
-    pub player_a_first_hint: Option<Hint>,
-    pub player_b_first_hint: Option<Hint>,
+    pub player_a_first_hint: Hint,
+    pub player_b_first_hint: Hint,
 
-    pub player_a_second_hint: Option<Hint>,
-    pub player_b_second_hint: Option<Hint>,
+    pub player_a_first_submit: Option<Hint>,
+    pub player_b_first_submit: Option<Hint>,
+
+    pub player_a_second_submit: Option<Hint>,
+    pub player_b_second_submit: Option<Hint>,
 
     pub player_a_guess: Option<Guess>,
     pub player_b_guess: Option<Guess>,
@@ -159,6 +162,36 @@ pub fn is_game_waiting_for_second_player<S: Storage>(
     Ok(game_state.player_b.is_none())
 }
 
+fn pick_hint<S: Storage>(
+    storage: &S,
+    color_options: &mut Vec<Color>,
+    shape_options: &mut Vec<Shape>,
+) -> StdResult<Hint> {
+    let hint: Hint;
+    let random_number = get_random_number(storage) % 100;
+    // 50/50 chance of getting color or shape as hint
+    if random_number < 50 {
+        // color
+        let hint_color = get_random_color(storage, color_options, false)?.unwrap();
+        match hint_color {
+            Color::Red => { hint = Hint::BagNotRed },
+            Color::Green => { hint = Hint::BagNotGreen },
+            Color::Blue => { hint = Hint::BagNotBlue },
+            Color::Black => { hint = Hint::BagNotBlack },
+        }
+    } else {
+        // shape
+        let hint_shape = get_random_shape(storage, shape_options, false)?.unwrap();
+        match hint_shape {
+            Shape::Triangle => { hint = Hint::BagNotTriangle },
+            Shape::Square=> { hint = Hint::BagNotSquare },
+            Shape::Circle => { hint = Hint::BagNotCircle },
+            Shape::Star => { hint = Hint::BagNotStar },
+        }
+    }
+    Ok(hint)
+}
+
 pub fn create_new_round<S: Storage>(
     storage: &S,
     player_a_wager: Option<Coin>,
@@ -179,18 +212,21 @@ pub fn create_new_round<S: Storage>(
     );
 
     let bag_chip = Chip {
-        color: get_random_color(storage, &mut color_options)?.unwrap(),
-        shape: get_random_shape(storage, &mut shape_options)?.unwrap(),
+        color: get_random_color(storage, &mut color_options, true)?.unwrap(),
+        shape: get_random_shape(storage, &mut shape_options, true)?.unwrap(),
     };
 
+    let player_a_first_hint: Hint = pick_hint(storage, &mut color_options, &mut shape_options)?;
+    let player_b_first_hint: Hint = pick_hint(storage, &mut color_options, &mut shape_options)?;
+
     let player_a_chip = Chip {
-        color: get_random_color(storage, &mut color_options)?.unwrap(),
-        shape: get_random_shape(storage, &mut shape_options)?.unwrap(),
+        color: get_random_color(storage, &mut color_options, true)?.unwrap(),
+        shape: get_random_shape(storage, &mut shape_options, true)?.unwrap(),
     };
 
     let player_b_chip = Chip {
-        color: get_random_color(storage, &mut color_options)?.unwrap(),
-        shape: get_random_shape(storage, &mut shape_options)?.unwrap(),
+        color: get_random_color(storage, &mut color_options, true)?.unwrap(),
+        shape: get_random_shape(storage, &mut shape_options, true)?.unwrap(),
     };
 
     Ok(RoundState {
@@ -200,10 +236,12 @@ pub fn create_new_round<S: Storage>(
         bag_chip,
         player_a_chip,
         player_b_chip,
-        player_a_first_hint: None,
-        player_b_first_hint: None,
-        player_a_second_hint: None,
-        player_b_second_hint: None,
+        player_a_first_hint,
+        player_b_first_hint,
+        player_a_first_submit: None,
+        player_b_first_submit: None,
+        player_a_second_submit: None,
+        player_b_second_submit: None,
         player_a_guess: None,
         player_b_guess: None,
         player_a_round_result: None,

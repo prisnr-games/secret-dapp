@@ -34,7 +34,7 @@ pub fn supply_more_entropy<S: Storage>(
     Singleton::new(storage, KEY_ENTROPY_POOL).save(&new_entropy_pool)
 }
 
-pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>) -> StdResult<Option<Color>> {
+pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>, remove: bool) -> StdResult<Option<Color>> {
     if color_options.len() == 0 {
         return Err(StdError::generic_err("No color options when picking a random color"));
     }
@@ -70,13 +70,13 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>)
             interval_start = interval_start + pct;
         }
     }
-    if picked_index.is_some() {
+    if remove && picked_index.is_some() {
         color_options.swap_remove(picked_index.unwrap());
     }
     Ok(picked_color)
 }
 
-pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>) -> StdResult<Option<Shape>> {
+pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>, remove: bool) -> StdResult<Option<Shape>> {
     if shape_options.len() == 0 {
         return Err(StdError::generic_err("No shape options when picking a random shape"));
     }
@@ -112,7 +112,7 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>)
             interval_start = interval_start + pct;
         }
     }
-    if picked_index.is_some() {
+    if remove && picked_index.is_some() {
         shape_options.swap_remove(picked_index.unwrap());
     }
     Ok(picked_shape)

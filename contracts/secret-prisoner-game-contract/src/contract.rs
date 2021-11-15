@@ -9,8 +9,9 @@ use crate::msg::{QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer,
 use crate::random::{supply_more_entropy};
 use crate::state::{
     create_new_game, set_config, get_config, get_current_game, get_game_state, is_game_waiting_for_second_player, get_number_of_games,
-    GameState, create_new_round, update_game_state,
+    GameState, create_new_round, update_game_state, RoundState,
 };
+use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape};
 
 /// We make sure that responses from `handle` are padded to a multiple of this size.
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
@@ -72,9 +73,14 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     let player = deps.api.canonical_address(&env.message.sender)?;
 
-    // check if already in ongoing game, if yes throw error (only one game at a time allowed)
-    if get_current_game(&deps.storage, &player).is_some() {
-        return Err(StdError::generic_err("Finish current game before beginning a new one"));
+    // check if already in ongoing game, 
+    // if yes, check it is finished otherwise throw error (only one game at a time allowed)
+    let current_game_idx = get_current_game(&deps.storage, &player);
+    if current_game_idx.is_some() {
+        let current_game = get_game_state(&deps.storage, current_game_idx.unwrap())?;
+        if !current_game.finished {
+            return Err(StdError::generic_err("You must finish current game before beginning a new one"));
+        }
     }
 
     let number_of_games = get_number_of_games(&deps.storage)?;
@@ -111,15 +117,170 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+fn valid_shape(shape: Option<String>) -> bool {
+    if shape.is_none() {
+        return true;
+    }
+    let shape = shape.unwrap();
+    shape == "triangle" || shape == "square" || shape == "circle" || shape == "star"
+}
+
+fn valid_color(color: Option<String>) -> bool {
+    if color.is_none() {
+        return true;
+    }
+    let color = color.unwrap();
+    color == "red" || color == "green" || color == "blue" || color == "black"
+}
+
+fn valid_target(target: String) -> bool {
+    target == "i_have" || target == "bag_not"
+}
+
 pub fn try_submit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     target: String,
-    color: String,
-    shape: String,
+    color: Option<String>,
+    shape: Option<String>,
 ) -> StdResult<HandleResponse> {
-    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    Ok(HandleResponse::default())
+    let player = deps.api.canonical_address(&env.message.sender)?;
+
+    if (color.is_none() && shape.is_none()) || (color.is_some() && shape.is_some()) {
+        return Err(StdError::generic_err("Hint must be either a color or shape but not both"));
+    }
+
+    let hint: Hint;
+
+    match target.as_str() {
+        "i_have" => {
+            if color.is_some() {
+                match color.unwrap().as_str() {
+                    "red" => { hint = Hint::IHaveRed },
+                    "green" => { hint = Hint::IHaveGreen },
+                    "blue" => { hint = Hint::IHaveBlue },
+                    "black" => { hint = Hint::IHaveBlack },
+                    _ => { return Err(StdError::generic_err("Invalid color")); },
+                }
+            } else { // shape
+                match shape.unwrap().as_str() {
+                    "triangle" => { hint = Hint::IHaveTriangle },
+                    "square" => { hint = Hint::IHaveSquare },
+                    "circle" => { hint = Hint::IHaveCircle },
+                    "star" => { hint = Hint::IHaveStar },
+                    _ => { return Err(StdError::generic_err("Invalid shape")); },
+                }
+            }
+        },
+        "bag_not" => {
+            if color.is_some() {
+                match color.unwrap().as_str() {
+                    "red" => { hint = Hint::BagNotRed },
+                    "green" => { hint = Hint::BagNotGreen },
+                    "blue" => { hint = Hint::BagNotBlue },
+                    "black" => { hint = Hint::BagNotBlack },
+                    _ => { return Err(StdError::generic_err("Invalid color")); },
+                }
+            } else { // shape
+                match shape.unwrap().as_str() {
+                    "triangle" => { hint = Hint::BagNotTriangle },
+                    "square" => { hint = Hint::BagNotSquare },
+                    "circle" => { hint = Hint::BagNotCircle },
+                    "star" => { hint = Hint::BagNotStar },
+                    _ => { return Err(StdError::generic_err("Invalid shape")); },
+                }
+            }
+        },
+        _ => { return Err(StdError::generic_err("Invalid hint")); }
+    }
+
+    // check if already in an ongoing game
+    let current_game = get_current_game(&deps.storage, &player);
+    if current_game.is_none() {
+        return Err(StdError::generic_err("You cannot submit a hint before joining a game"));
+    }
+
+    let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+
+    if game_state.round == 0 || game_state.round_state.is_none() {
+        return Err(StdError::generic_err("First round has not been initialized"));
+    }
+
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+
+    let mut round_state: RoundState = game_state.round_state.unwrap();
+
+    match round_state.stage {
+        RoundStage::Initialized => {
+            let new_hint = Some(hint);
+
+            if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
+                round_state.player_a_first_submit = new_hint;
+            } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
+                round_state.player_b_first_submit = new_hint;
+            } else {
+                return Err(StdError::generic_err("Cannot accept a submission from player"));
+            }
+            round_state.stage = RoundStage::OnePlayerFirstSubmit;
+
+            game_state.round_state = Some(round_state);
+            update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+        },
+        RoundStage::OnePlayerFirstSubmit => {
+            let new_hint = Some(hint);
+
+            if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
+                round_state.player_a_first_submit = new_hint;
+            } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
+                round_state.player_b_first_submit = new_hint;
+            } else {
+                return Err(StdError::generic_err("Cannot accept a submission from player"));
+            }
+            round_state.stage = RoundStage::BothPlayersFirstSubmit;
+
+            game_state.round_state = Some(round_state);
+            update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+        },
+        RoundStage::BothPlayersFirstSubmit => {
+            let new_hint = Some(hint);
+
+            if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
+                round_state.player_a_second_submit = new_hint;
+            } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
+                round_state.player_b_second_submit = new_hint;
+            } else {
+                return Err(StdError::generic_err("Cannot accept a submission from player"));
+            }
+            round_state.stage = RoundStage::OnePlayerSecondSubmit;
+
+            game_state.round_state = Some(round_state);
+            update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+        },
+        RoundStage::OnePlayerSecondSubmit => {
+            let new_hint = Some(hint);
+
+            if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
+                round_state.player_a_second_submit = new_hint;
+            } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
+                round_state.player_b_second_submit = new_hint;
+            } else {
+                return Err(StdError::generic_err("Cannot accept a submission from player"));
+            }
+            round_state.stage = RoundStage::BothPlayersSecondSubmit;
+
+            game_state.round_state = Some(round_state);
+            update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+        },
+        _ => { return Err(StdError::generic_err("Not a submission round")); },
+    };
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Submit { status: Success })?),
+    })
 }
 
 pub fn try_guess<S: Storage, A: Api, Q: Querier>(
@@ -129,15 +290,153 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
     color: Option<String>,
     shape: Option<String>,
 ) -> StdResult<HandleResponse> {
-    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    Ok(HandleResponse::default())
+    let player = deps.api.canonical_address(&env.message.sender)?;
+
+    let guess: Guess;
+
+    if target != "abstain" && (color.is_none() || shape.is_none()) {
+        return Err(StdError::generic_err("Invalid guess"));
+    }
+    let color_type: Color = match color.unwrap().as_str() {
+        "red" => Color::Red,
+        "green" => Color::Green,
+        "blue" => Color::Blue,
+        "black" => Color::Black,
+        _ => { return Err(StdError::generic_err("Invalid color")); }
+    };
+
+    let shape_type: Shape = match shape.unwrap().as_str() {
+        "triangle" => Shape::Triangle,
+        "square" => Shape::Square,
+        "circle" => Shape::Circle,
+        "star" => Shape::Star,
+        _ => { return Err(StdError::generic_err("Invalid shape")); }
+    };
+
+    match target.as_str() {
+        "bag" => {
+            guess = Guess {
+                target: Target::Bag,
+                color: Some(color_type),
+                shape: Some(shape_type),
+            };
+        },
+        "opponent" => {
+            guess = Guess {
+                target: Target::Opponent,
+                color: Some(color_type),
+                shape: Some(shape_type),
+            };
+        },
+        "abstain" => { 
+            guess = Guess {
+                target: Target::Abstain,
+                color: None,
+                shape: None,
+            };
+        },
+        _ => { return Err(StdError::generic_err("Invalid guess")); }
+    }
+
+    // check if already in an ongoing game
+    let current_game = get_current_game(&deps.storage, &player);
+    if current_game.is_none() {
+        return Err(StdError::generic_err("You cannot submit a guess before joining a game"));
+    }
+
+    let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+
+    if game_state.round == 0 || game_state.round_state.is_none() {
+        return Err(StdError::generic_err("First round has not been initialized"));
+    }
+
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+
+    let mut round_state: RoundState = game_state.round_state.unwrap();
+
+    match round_state.stage {
+        RoundStage::BothPlayersSecondSubmit => {
+            let new_guess = Some(guess);
+
+            if player == game_state.player_a && round_state.player_a_guess.is_none() {
+                round_state.player_a_guess = new_guess;
+            } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_guess.is_none() {
+                round_state.player_b_guess = new_guess;
+            } else {
+                return Err(StdError::generic_err("Cannot accept a submission from player"));
+            }
+            round_state.stage = RoundStage::OnePlayerGuess;
+
+            game_state.round_state = Some(round_state);
+            update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+        },
+        RoundStage::OnePlayerGuess => {
+            let new_guess = Some(guess.clone());
+
+            if player == game_state.player_a && round_state.player_a_guess.is_none() {
+                round_state.player_a_guess = new_guess;
+            } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_guess.is_none() {
+                round_state.player_b_guess = new_guess;
+            } else {
+                return Err(StdError::generic_err("Cannot accept a submission from player"));
+            }
+            round_state.stage = RoundStage::Finished;
+
+            let round_result: RoundResult;
+
+            if guess.target == Target::Abstain {
+                round_result = RoundResult::Abstain;
+            } else if guess.target == Target::Bag {
+                if guess.color.unwrap() == round_state.bag_chip.color && guess.shape.unwrap() == round_state.bag_chip.shape {
+                    round_result = RoundResult::BagCorrect;
+                } else {
+                    round_result = RoundResult::BagWrong;
+                }
+            } else { // Target::Opponent
+                let opponent_chip: Chip;
+                if player == game_state.player_a {
+                    opponent_chip = round_state.player_b_chip.clone();
+                } else {
+                    opponent_chip = round_state.player_a_chip.clone();
+                }
+                if guess.color.unwrap() == opponent_chip.color && guess.shape.unwrap() == opponent_chip.shape {
+                    round_result = RoundResult::OpponentCorrect;
+                } else {
+                    round_result = RoundResult::OpponentWrong;
+                }
+            }
+
+            if player == game_state.player_a {
+                round_state.player_a_round_result = Some(round_result);
+            } else {
+                round_state.player_b_round_result = Some(round_result);
+            }
+
+            game_state.round_state = Some(round_state);
+
+            // now only one round
+            // TODO: Is this the last round?? if not, increment and reset
+            game_state.finished = true;
+
+            update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+        },
+        _ => { return Err(StdError::generic_err("Not a guess round")); }
+    }
+    
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Guess { status: Success })?),
+    })
 }
 
 pub fn try_forfeit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> StdResult<HandleResponse> {
-    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let player = deps.api.canonical_address(&env.message.sender)?;
     Ok(HandleResponse::default())
 }
 

@@ -77,10 +77,15 @@ pub enum Hint {
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
-pub enum Guess {
-    BagCorrect,
-    BagWrong,
-    OpponentCorrect,
-    OpponentWrong,
+pub enum Target {
+    Bag,
+    Opponent,
     Abstain,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Guess {
+    pub target: Target,
+    pub color: Option<Color>,
+    pub shape: Option<Shape>,
 }
