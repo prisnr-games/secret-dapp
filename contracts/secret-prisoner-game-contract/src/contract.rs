@@ -8,7 +8,7 @@ use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
 use crate::msg::{QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
 use crate::random::{supply_more_entropy};
 use crate::state::{
-    create_new_game, set_config, get_config, get_current_game, get_game_state, is_game_waiting_for_second_player, get_number_of_games,
+    create_new_game, set_config, get_config, get_current_game, get_game_state, get_number_of_games,
     GameState, create_new_round, update_game_state, RoundState,
 };
 use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape};
@@ -115,26 +115,6 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
         log: vec![],
         data: Some(to_binary(&HandleAnswer::Join { status: Success })?),
     })
-}
-
-fn valid_shape(shape: Option<String>) -> bool {
-    if shape.is_none() {
-        return true;
-    }
-    let shape = shape.unwrap();
-    shape == "triangle" || shape == "square" || shape == "circle" || shape == "star"
-}
-
-fn valid_color(color: Option<String>) -> bool {
-    if color.is_none() {
-        return true;
-    }
-    let color = color.unwrap();
-    color == "red" || color == "green" || color == "blue" || color == "black"
-}
-
-fn valid_target(target: String) -> bool {
-    target == "i_have" || target == "bag_not"
 }
 
 pub fn try_submit<S: Storage, A: Api, Q: Querier>(

@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
-use crate::types::{Color, Shape, Chip, GameStage, RoundResult, RoundStage, Guess, Hint};
+use crate::types::{Color, Shape, Chip, RoundResult, RoundStage, Guess, Hint};
 use crate::random::{get_random_color, get_random_shape, get_random_number};
 
 pub static CONFIG_KEY: &[u8] = b"config";
