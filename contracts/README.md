@@ -44,6 +44,8 @@ docker run -it --rm \
  --name secretdev enigmampc/secret-network-sw-dev:v1.2.0
 ```
 
+If you are not running this command from the contract directory, adjust the `$(pwd)` part of the `-v` parameter to mount the contract directory in the container.
+
 ### Uploading contract to local dev chain
 
 In a new terminal window connect to the testnet container:
@@ -52,5 +54,37 @@ In a new terminal window connect to the testnet container:
 docker exec -it secretdev /bin/bash
 ```
 
+To load the contract in the container shell enter:
 
+```sh
+cd code/
+secretd tx compute store contract.wasm.gz --from a --gas 2500000 -y --keyring-backend test
+```
 
+You can confirm that the contract was uploaded by querying the transaction hash:
+
+```sh
+secretd q tx {txhash}
+```
+
+Now we initialize the contract. The `CODE_ID` might be different if you've uploaded other contracts:
+
+```sh
+CODE_ID=1
+
+INIT='{"rounds_per_game": 1, "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25}'
+
+secretd tx compute instantiate $CODE_ID "$INIT" --from a --label "secret-prisoners-0.0.1" -y --keyring-backend test --gas 30000
+```
+
+You can query the transaction hash to make sure that the contract was initialized and get the contract address:
+
+```sh
+secretd q tx {txhash}
+```
+
+On the local dev network the first uploaded contract should have the following address:
+
+```sh
+CONTRACT=secret1qxxlalvsdjd07p07y3rc5fu6ll8k4tme6e2scc
+```

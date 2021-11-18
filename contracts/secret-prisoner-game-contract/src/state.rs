@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
-use crate::types::{Color, Shape, Chip, RoundResult, RoundStage, Guess, Hint};
+use crate::types::{Color, Shape, Chip, RoundResult, RoundStage, Guess, Hint, StoredChip, StoredGuess};
 use crate::random::{get_random_color, get_random_shape, get_random_number};
 
 pub static CONFIG_KEY: &[u8] = b"config";
@@ -44,29 +44,29 @@ pub fn get_config<S: ReadonlyStorage>(storage: &S) -> StdResult<Config> {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct RoundState {
-    pub stage: RoundStage,
+    pub stage: u8,
 
     pub player_a_wager: Option<Coin>,
     pub player_b_wager: Option<Coin>,
 
-    pub bag_chip: Chip,
-    pub player_a_chip: Chip,
-    pub player_b_chip: Chip,
+    pub bag_chip: StoredChip,
+    pub player_a_chip: StoredChip,
+    pub player_b_chip: StoredChip,
 
-    pub player_a_first_hint: Hint,
-    pub player_b_first_hint: Hint,
+    pub player_a_first_hint: u8,
+    pub player_b_first_hint: u8,
 
-    pub player_a_first_submit: Option<Hint>,
-    pub player_b_first_submit: Option<Hint>,
+    pub player_a_first_submit: Option<u8>,
+    pub player_b_first_submit: Option<u8>,
 
-    pub player_a_second_submit: Option<Hint>,
-    pub player_b_second_submit: Option<Hint>,
+    pub player_a_second_submit: Option<u8>,
+    pub player_b_second_submit: Option<u8>,
 
-    pub player_a_guess: Option<Guess>,
-    pub player_b_guess: Option<Guess>,
+    pub player_a_guess: Option<StoredGuess>,
+    pub player_b_guess: Option<StoredGuess>,
 
-    pub player_a_round_result: Option<RoundResult>,
-    pub player_b_round_result: Option<RoundResult>,
+    pub player_a_round_result: Option<u8>,
+    pub player_b_round_result: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -233,14 +233,14 @@ pub fn create_new_round<S: Storage>(
     };
 
     Ok(RoundState {
-        stage: RoundStage::Initialized,
+        stage: RoundStage::Initialized.u8_val(),
         player_a_wager,
         player_b_wager,
-        bag_chip,
-        player_a_chip,
-        player_b_chip,
-        player_a_first_hint,
-        player_b_first_hint,
+        bag_chip: bag_chip.to_stored(),
+        player_a_chip: player_a_chip.to_stored(),
+        player_b_chip: player_b_chip.to_stored(),
+        player_a_first_hint: player_a_first_hint.u8_val(),
+        player_b_first_hint: player_b_first_hint.u8_val(),
         player_a_first_submit: None,
         player_b_first_submit: None,
         player_a_second_submit: None,

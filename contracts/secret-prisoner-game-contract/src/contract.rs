@@ -217,9 +217,9 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
     let mut round_state: RoundState = game_state.round_state.unwrap();
 
-    match round_state.stage {
+    match RoundStage::from_u8(round_state.stage)? {
         RoundStage::Initialized => {
-            let new_hint = Some(hint);
+            let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
                 round_state.player_a_first_submit = new_hint;
@@ -228,13 +228,13 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
-            round_state.stage = RoundStage::OnePlayerFirstSubmit;
+            round_state.stage = RoundStage::OnePlayerFirstSubmit.u8_val();
 
             game_state.round_state = Some(round_state);
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
         RoundStage::OnePlayerFirstSubmit => {
-            let new_hint = Some(hint);
+            let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
                 round_state.player_a_first_submit = new_hint;
@@ -243,13 +243,13 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
-            round_state.stage = RoundStage::BothPlayersFirstSubmit;
+            round_state.stage = RoundStage::BothPlayersFirstSubmit.u8_val();
 
             game_state.round_state = Some(round_state);
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
         RoundStage::BothPlayersFirstSubmit => {
-            let new_hint = Some(hint);
+            let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
                 round_state.player_a_second_submit = new_hint;
@@ -258,13 +258,13 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
-            round_state.stage = RoundStage::OnePlayerSecondSubmit;
+            round_state.stage = RoundStage::OnePlayerSecondSubmit.u8_val();
 
             game_state.round_state = Some(round_state);
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
         RoundStage::OnePlayerSecondSubmit => {
-            let new_hint = Some(hint);
+            let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
                 round_state.player_a_second_submit = new_hint;
@@ -273,7 +273,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
-            round_state.stage = RoundStage::BothPlayersSecondSubmit;
+            round_state.stage = RoundStage::BothPlayersSecondSubmit.u8_val();
 
             game_state.round_state = Some(round_state);
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
@@ -361,9 +361,9 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
 
     let mut round_state: RoundState = game_state.round_state.unwrap();
 
-    match round_state.stage {
+    match RoundStage::from_u8(round_state.stage)? {
         RoundStage::BothPlayersSecondSubmit => {
-            let new_guess = Some(guess);
+            let new_guess = Some(guess.to_stored());
 
             if player == game_state.player_a && round_state.player_a_guess.is_none() {
                 round_state.player_a_guess = new_guess;
@@ -372,13 +372,13 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
-            round_state.stage = RoundStage::OnePlayerGuess;
+            round_state.stage = RoundStage::OnePlayerGuess.u8_val();
 
             game_state.round_state = Some(round_state);
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
         RoundStage::OnePlayerGuess => {
-            let new_guess = Some(guess.clone());
+            let new_guess = Some(guess.clone().to_stored());
 
             if player == game_state.player_a && round_state.player_a_guess.is_none() {
                 round_state.player_a_guess = new_guess;
@@ -387,14 +387,14 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
-            round_state.stage = RoundStage::Finished;
+            round_state.stage = RoundStage::Finished.u8_val();
 
             let round_result: RoundResult;
 
             if guess.target == Target::Abstain {
                 round_result = RoundResult::Abstain;
             } else if guess.target == Target::Bag {
-                if guess.color.unwrap() == round_state.bag_chip.color && guess.shape.unwrap() == round_state.bag_chip.shape {
+                if guess.color.unwrap() == Color::from_u8(round_state.bag_chip.color)? && guess.shape.unwrap() == Shape::from_u8(round_state.bag_chip.shape)? {
                     round_result = RoundResult::BagCorrect;
                 } else {
                     round_result = RoundResult::BagWrong;
@@ -402,9 +402,9 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
             } else { // Target::Opponent
                 let opponent_chip: Chip;
                 if player == game_state.player_a {
-                    opponent_chip = round_state.player_b_chip.clone();
+                    opponent_chip = round_state.player_b_chip.clone().to_humanized()?;
                 } else {
-                    opponent_chip = round_state.player_a_chip.clone();
+                    opponent_chip = round_state.player_a_chip.clone().to_humanized()?;
                 }
                 if guess.color.unwrap() == opponent_chip.color && guess.shape.unwrap() == opponent_chip.shape {
                     round_result = RoundResult::OpponentCorrect;
@@ -414,9 +414,9 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
             }
 
             if player == game_state.player_a {
-                round_state.player_a_round_result = Some(round_result);
+                round_state.player_a_round_result = Some(round_result.u8_val());
             } else {
-                round_state.player_b_round_result = Some(round_result);
+                round_state.player_b_round_result = Some(round_result.u8_val());
             }
 
             game_state.round_state = Some(round_state);
@@ -612,36 +612,36 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
                 let round_state = game_state.round_state.unwrap();
                 wager = round_state.player_a_wager;
                 let chip = round_state.player_a_chip;
-                chip_color = Some(color_to_string(chip.color));
-                chip_shape = Some(shape_to_string(chip.shape));
+                chip_color = Some(color_to_string(Color::from_u8(chip.color)?));
+                chip_shape = Some(shape_to_string(Shape::from_u8(chip.shape)?));
                 let initial_hint = round_state.player_a_first_hint;
-                hint = Some(hint_to_string(initial_hint));
+                hint = Some(hint_to_string(Hint::from_u8(initial_hint)?));
                 if round_state.player_a_first_submit.is_some() {
-                    first_submit = Some(hint_to_string(round_state.player_a_first_submit.unwrap()));
+                    first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_submit.unwrap())?));
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_b_first_submit.is_some() {
-                        opponent_first_submit = Some(hint_to_string(round_state.player_b_first_submit.unwrap()));
+                        opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_submit.unwrap())?));
                     }
                 }
                 if round_state.player_a_second_submit.is_some() {
-                    second_submit = Some(hint_to_string(round_state.player_a_second_submit.unwrap()));
+                    second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_submit.unwrap())?));
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_b_second_submit.is_some() {
-                        opponent_second_submit = Some(hint_to_string(round_state.player_b_second_submit.unwrap()));
+                        opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_submit.unwrap())?));
                     }
                 }
                 if round_state.player_a_guess.is_some() {
-                    guess = Some(guess_to_string(round_state.player_a_guess.unwrap()));
+                    guess = Some(guess_to_string(round_state.player_a_guess.unwrap().to_humanized()?));
                     // player cannot see opponent's guess until made own guess
                     if round_state.player_b_guess.is_some() {
-                        opponent_guess = Some(guess_to_string(round_state.player_b_guess.unwrap()));
+                        opponent_guess = Some(guess_to_string(round_state.player_b_guess.unwrap().to_humanized()?));
                     }
                 }
                 if round_state.player_a_round_result.is_some() {
-                    round_result = Some(round_result_to_string(round_state.player_a_round_result.unwrap()));
+                    round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_a_round_result.unwrap())?));
                     // player cannot see opponent's round result until own round result if available
                     if round_state.player_b_round_result.is_some() {
-                        opponent_round_result = Some(round_result_to_string(round_state.player_b_round_result.unwrap()));
+                        opponent_round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_b_round_result.unwrap())?));
                     }
                 }
             }
@@ -652,36 +652,36 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
                 let round_state = game_state.round_state.unwrap();
                 wager = round_state.player_b_wager;
                 let chip = round_state.player_b_chip;
-                chip_color = Some(color_to_string(chip.color));
-                chip_shape = Some(shape_to_string(chip.shape));
+                chip_color = Some(color_to_string(Color::from_u8(chip.color)?));
+                chip_shape = Some(shape_to_string(Shape::from_u8(chip.shape)?));
                 let initial_hint = round_state.player_b_first_hint;
-                hint = Some(hint_to_string(initial_hint));
+                hint = Some(hint_to_string(Hint::from_u8(initial_hint)?));
                 if round_state.player_b_first_submit.is_some() {
-                    first_submit = Some(hint_to_string(round_state.player_b_first_submit.unwrap()));
+                    first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_submit.unwrap())?));
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_a_first_submit.is_some() {
-                        opponent_first_submit = Some(hint_to_string(round_state.player_a_first_submit.unwrap()));
+                        opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_submit.unwrap())?));
                     }
                 }
                 if round_state.player_b_second_submit.is_some() {
-                    second_submit = Some(hint_to_string(round_state.player_b_second_submit.unwrap()));
+                    second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_submit.unwrap())?));
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_a_second_submit.is_some() {
-                        opponent_second_submit = Some(hint_to_string(round_state.player_a_second_submit.unwrap()));
+                        opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_submit.unwrap())?));
                     }
                 }
                 if round_state.player_b_guess.is_some() {
-                    guess = Some(guess_to_string(round_state.player_b_guess.unwrap()));
+                    guess = Some(guess_to_string(round_state.player_b_guess.unwrap().to_humanized()?));
                     // player cannot see opponent's guess until made own guess
                     if round_state.player_a_guess.is_some() {
-                        opponent_guess = Some(guess_to_string(round_state.player_a_guess.unwrap()));
+                        opponent_guess = Some(guess_to_string(round_state.player_a_guess.unwrap().to_humanized()?));
                     }
                 }
                 if round_state.player_b_round_result.is_some() {
-                    round_result = Some(round_result_to_string(round_state.player_b_round_result.unwrap()));
+                    round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_b_round_result.unwrap())?));
                     // player cannot see opponent's round result until own round result if available
                     if round_state.player_a_round_result.is_some() {
-                        opponent_round_result = Some(round_result_to_string(round_state.player_a_round_result.unwrap()));
+                        opponent_round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_a_round_result.unwrap())?));
                     }
                 }
             }
