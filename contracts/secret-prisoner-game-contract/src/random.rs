@@ -6,6 +6,7 @@ use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaChaRng;
 use sha2::{Digest, Sha256};
 
+use crate::state::{get_config, Config};
 use crate::types::{Color, Shape};
 
 static KEY_ENTROPY_POOL: &[u8] = b"entropy_pool";
@@ -39,11 +40,13 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>,
         return Err(StdError::generic_err("No color options when picking a random color"));
     }
 
+    let config: Config = get_config(storage)?;
+
     let color_percentage_map: HashMap<Color, u64> = [
-        (Color::Red, 30_u64),
-        (Color::Green, 30_u64),
-        (Color::Blue, 30_u64),
-        (Color::Black, 10_u64),
+        (Color::Red, config.red_weight as u64),
+        (Color::Green, config.green_weight as u64),
+        (Color::Blue, config.blue_weight as u64),
+        (Color::Black, config.black_weight as u64),
     ].iter().cloned().collect();
 
     let mut total = 0_u64;
@@ -81,11 +84,13 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>,
         return Err(StdError::generic_err("No shape options when picking a random shape"));
     }
 
+    let config: Config = get_config(storage)?;
+
     let shape_percentage_map: HashMap<Shape, u64> = [
-        (Shape::Triangle, 30_u64),
-        (Shape::Square, 30_u64),
-        (Shape::Circle, 30_u64),
-        (Shape::Star, 10_u64),
+        (Shape::Triangle, config.triangle_weight as u64),
+        (Shape::Square, config.square_weight as u64),
+        (Shape::Circle, config.circle_weight as u64),
+        (Shape::Star, config.star_weight as u64),
     ].iter().cloned().collect();
 
     let mut total = 0_u64;

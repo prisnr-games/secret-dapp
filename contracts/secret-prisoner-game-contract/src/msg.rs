@@ -7,6 +7,17 @@ use secret_toolkit::permit::Permit;
 pub struct InitMsg {
     pub admin: Option<HumanAddr>,
     pub rounds_per_game: u8,
+
+    // default even weights for colors and shapes (25,25,25,25)
+    pub red_weight: Option<u16>,
+    pub green_weight: Option<u16>,
+    pub blue_weight: Option<u16>,
+    pub black_weight: Option<u16>,
+    pub triangle_weight: Option<u16>,
+    pub square_weight: Option<u16>,
+    pub circle_weight: Option<u16>,
+    pub star_weight: Option<u16>,
+
     //pub low_stakes: Coin,
     //pub medium_stakes: Coin,
     //pub high_stakes: Coin,

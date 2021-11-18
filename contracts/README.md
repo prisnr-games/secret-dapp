@@ -28,16 +28,29 @@ docker run --rm -v "$(pwd)":/contract \
   enigmampc/secret-contract-optimizer:1.0.5
 ```
 
+To get the code hash for the compiled contract run this:
+
+```sh
+gunzip -c contract.wasm.gz > contract.wasm
+shasum -a 256 contract.wasm
+```
+
 ## Setting up secretdev local testnet chain
 
 ```sh
 docker run -it --rm \
  -p 26657:26657 -p 26656:26656 -p 1317:1317 \
+ -v $(pwd):/root/code \
  --name secretdev enigmampc/secret-network-sw-dev:v1.2.0
 ```
 
-Connect to the testnet container:
+### Uploading contract to local dev chain
+
+In a new terminal window connect to the testnet container:
 
 ```sh
 docker exec -it secretdev /bin/bash
 ```
+
+
+

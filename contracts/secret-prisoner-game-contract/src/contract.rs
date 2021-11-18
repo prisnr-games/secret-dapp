@@ -9,7 +9,7 @@ use crate::msg::{QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer,
 use crate::random::{supply_more_entropy};
 use crate::state::{
     create_new_game, set_config, get_config, get_current_game, get_game_state, get_number_of_games,
-    GameState, create_new_round, update_game_state, RoundState,
+    GameState, create_new_round, update_game_state, RoundState, Config,
 };
 use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape};
 
@@ -22,10 +22,35 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
+    let red_weight = msg.red_weight.unwrap_or(25);
+    let green_weight = msg.green_weight.unwrap_or(25);
+    let blue_weight = msg.blue_weight.unwrap_or(25);
+    let black_weight = msg.black_weight.unwrap_or(25);
+
+    let triangle_weight = msg.triangle_weight.unwrap_or(25);
+    let square_weight = msg.square_weight.unwrap_or(25);
+    let circle_weight = msg.circle_weight.unwrap_or(25);
+    let star_weight = msg.star_weight.unwrap_or(25);
+
+    let admin = deps.api.canonical_address(&env.message.sender)?;
+    let contract_address = deps.api.canonical_address(&env.contract.address)?;
+
+    let config = Config {
+        admin,
+        contract_address,
+        red_weight,
+        green_weight,
+        blue_weight,
+        black_weight,
+        triangle_weight,
+        square_weight,
+        circle_weight,
+        star_weight,
+    };
+
     set_config(
         &mut deps.storage, 
-        deps.api.canonical_address(&env.message.sender)?, 
-        deps.api.canonical_address(&env.contract.address)?,
+        config,
     )?;
 
     //debug_print!("Contract was initialized by {}", env.message.sender);

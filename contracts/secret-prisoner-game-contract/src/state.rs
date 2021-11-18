@@ -21,17 +21,20 @@ pub static LOST_PREFIX: &[u8] = b"lost";
 pub struct Config {
     pub admin: CanonicalAddr,
     pub contract_address: CanonicalAddr,
+    pub red_weight: u16,
+    pub green_weight: u16,
+    pub blue_weight: u16,
+    pub black_weight: u16,
+    pub triangle_weight: u16,
+    pub square_weight: u16,
+    pub circle_weight: u16,
+    pub star_weight: u16,
 }
 
 pub fn set_config<S: Storage>(
     storage: &mut S,
-    admin: CanonicalAddr,
-    contract_address: CanonicalAddr,
+    config: Config,
 ) -> StdResult<()> {
-    let config = Config {
-        admin,
-        contract_address,
-    };
     set_bin_data(storage, CONFIG_KEY, &config)
 }
 
