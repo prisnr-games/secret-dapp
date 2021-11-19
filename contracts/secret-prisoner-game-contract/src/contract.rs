@@ -380,6 +380,36 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
             }
             round_state.stage = RoundStage::OnePlayerGuess.u8_val();
 
+            let round_result: RoundResult;
+
+            if guess.target == Target::Abstain {
+                round_result = RoundResult::Abstain;
+            } else if guess.target == Target::Bag {
+                if guess.color.unwrap() == Color::from_u8(round_state.bag_chip.color)? && guess.shape.unwrap() == Shape::from_u8(round_state.bag_chip.shape)? {
+                    round_result = RoundResult::BagCorrect;
+                } else {
+                    round_result = RoundResult::BagWrong;
+                }
+            } else { // Target::Opponent
+                let opponent_chip: Chip;
+                if player == game_state.player_a {
+                    opponent_chip = round_state.player_b_chip.clone().to_humanized()?;
+                } else {
+                    opponent_chip = round_state.player_a_chip.clone().to_humanized()?;
+                }
+                if guess.color.unwrap() == opponent_chip.color && guess.shape.unwrap() == opponent_chip.shape {
+                    round_result = RoundResult::OpponentCorrect;
+                } else {
+                    round_result = RoundResult::OpponentWrong;
+                }
+            }
+
+            if player == game_state.player_a {
+                round_state.player_a_round_result = Some(round_result.u8_val());
+            } else {
+                round_state.player_b_round_result = Some(round_result.u8_val());
+            }
+
             game_state.round_state = Some(round_state);
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
