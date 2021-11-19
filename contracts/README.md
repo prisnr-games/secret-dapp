@@ -41,7 +41,7 @@ shasum -a 256 contract.wasm
 docker run -it --rm \
  -p 26657:26657 -p 26656:26656 -p 1317:1317 \
  -v $(pwd):/root/code \
- --name secretdev enigmampc/secret-network-sw-dev:v1.2.0
+ --name secretdev enigmampc/secret-network-sw-dev:v1.2.0-1
 ```
 
 If you are not running this command from the contract directory, adjust the `$(pwd)` part of the `-v` parameter to mount the contract directory in the container.
@@ -67,7 +67,7 @@ You can confirm that the contract was uploaded by querying the transaction hash:
 secretd q tx {txhash}
 ```
 
-Now we initialize the contract. The `CODE_ID` might be different if you've uploaded other contracts:
+Now we initialize the contract from the test user `a`. The `CODE_ID` might be different if you've uploaded other contracts. Change `INIT` if you do not want the colors and shapes to have equal probability:
 
 ```sh
 CODE_ID=1
@@ -86,5 +86,58 @@ secretd q tx {txhash}
 On the local dev network the first uploaded contract should have the following address:
 
 ```sh
-CONTRACT=secret1qxxlalvsdjd07p07y3rc5fu6ll8k4tme6e2scc
+CONTRACT=secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg
+```
+
+## Command line interaction with the contract
+
+### Joining a game
+
+Player `a` joining a game.
+
+```sh
+secretd tx compute execute $CONTRACT '{"join":{}}' --from a --keyring-backend test --gas 32000 -y
+```
+
+Player `b` joining a game.
+
+```sh
+secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend test --gas 32000 -y
+```
+
+### Creating a query permit
+
+In order to create a query permit for test user `a` on the command line do the following (modify `allowed_tokens` to have the contract's address as needed):
+
+```sh
+echo '{
+    "chain_id": "secretdev-1",
+    "account_number": "0",
+    "sequence": "0",
+    "msgs": [
+        {
+            "type": "query_permit",
+            "value": {
+                "permit_name": "Scrt Prisoners",
+                "allowed_tokens": [
+                    "secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"
+                ],
+                "permissions": ["owner"],
+            }
+        }
+    ],
+    "fee": {
+        "amount": [
+            {
+                "denom": "uscrt",
+                "amount": "0"
+            }
+        ],
+        "gas": "1"
+    },
+    "memo": ""
+}' > ./permit.json
+
+secretd tx sign-doc ./permit.json --from a > ./sig.json
+
 ```

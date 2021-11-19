@@ -71,19 +71,40 @@ pub enum ResponseStatus {
     Failure,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GameStateResponse {
+    pub round: Option<u8>,
+    pub wager: Option<Coin>,
+    pub chip_color: Option<String>,
+    pub chip_shape: Option<String>,
+    pub hint: Option<String>,
+    pub first_submit: Option<String>,
+    pub second_submit: Option<String>,
+    pub opponent_first_submit: Option<String>,
+    pub opponent_second_submit: Option<String>,
+    pub guess: Option<String>,
+    pub opponent_guess: Option<String>,
+    pub round_result: Option<String>,
+    pub opponent_round_result: Option<String>,
+    pub finished: Option<bool>,
+}
+
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleAnswer {
     Join {
         status: ResponseStatus,
+        game_state: Option<GameStateResponse>,
     },
 
     Submit {
         status: ResponseStatus,
+        game_state: Option<GameStateResponse>,
     },
 
     Guess {
         status: ResponseStatus,
+        game_state: Option<GameStateResponse>,
     },
 
     Forfeit {

@@ -1,15 +1,15 @@
 use cosmwasm_std::{
     //debug_print, 
     to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
-    StdError, StdResult, Storage,
+    StdError, StdResult, Storage, CanonicalAddr,
 };
 use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
 
-use crate::msg::{QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
+use crate::msg::{GameStateResponse, QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
 use crate::random::{supply_more_entropy};
 use crate::state::{
     create_new_game, set_config, get_config, get_current_game, get_game_state, get_number_of_games,
-    GameState, create_new_round, update_game_state, RoundState, Config,
+    GameState, create_new_round, update_game_state, RoundState, Config, set_current_game,
 };
 use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape};
 
@@ -123,22 +123,26 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
     
     if !game_ready {
         // if yes: create a new game state with player_a
+        //   create_new_game sets the current game for player to this one
         create_new_game(&mut deps.storage, &player)?;
     } else {
         // if no: add player_b to waiting game_state, create first round and assign chips
         let mut game_state = game_state.unwrap();
-        game_state.player_b = Some(player);
+        game_state.player_b = Some(player.clone());
         // TODO: add player wager parameters
         let new_round = create_new_round(&deps.storage, None, None)?;
         game_state.round_state = Some(new_round);
         game_state.round = 1_u8;
         update_game_state(&mut deps.storage, number_of_games - 1, &game_state)?;
+        set_current_game(&mut deps.storage, &player, Some(number_of_games - 1))?;
     }
+
+    let game_state_response = get_game_state_response(&deps.storage, player)?;
 
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Join { status: Success })?),
+        data: Some(to_binary(&HandleAnswer::Join { status: Success, game_state: Some(game_state_response) })?),
     })
 }
 
@@ -281,10 +285,12 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
         _ => { return Err(StdError::generic_err("Not a submission round")); },
     };
 
+    let game_state_response = get_game_state_response(&deps.storage, player)?;
+
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Submit { status: Success })?),
+        data: Some(to_binary(&HandleAnswer::Submit { status: Success, game_state: Some(game_state_response) })?),
     })
 }
 
@@ -430,10 +436,12 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
         _ => { return Err(StdError::generic_err("Not a guess round")); }
     }
     
+    let game_state_response = get_game_state_response(&deps.storage, player)?;
+
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Guess { status: Success })?),
+        data: Some(to_binary(&HandleAnswer::Guess { status: Success, game_state: Some(game_state_response) })?),
     })
 }
 
@@ -581,12 +589,10 @@ fn round_result_to_string(round_result: RoundResult) -> String {
     }
 }
 
-fn query_game_state<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    account: &HumanAddr,
-) -> StdResult<Binary> {
-    let player = deps.api.canonical_address(account)?;
-
+fn get_game_state_response<S: Storage>(
+    storage: &S,
+    player: CanonicalAddr,
+) -> StdResult<GameStateResponse> {
     let mut round: Option<u8> = None;
     let mut wager: Option<Coin> = None;
     let mut chip_color: Option<String> = None;
@@ -602,9 +608,9 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
     let mut opponent_round_result: Option<String> = None;
     let mut finished: Option<bool> = None;
 
-    let current_game = get_current_game(&deps.storage, &player);
+    let current_game = get_current_game(storage, &player);
     if current_game.is_some() {
-        let game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+        let game_state: GameState = get_game_state(storage, current_game.unwrap())?;
         if player == game_state.player_a {
             round = Some(game_state.round);
             finished = Some(game_state.finished);
@@ -688,7 +694,7 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         }
     }
 
-    let response = QueryAnswer::GameState {
+    Ok(GameStateResponse {
         round,
         wager,
         chip_color,
@@ -703,6 +709,31 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         round_result,
         opponent_round_result,
         finished,
+    })
+}
+
+fn query_game_state<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    account: &HumanAddr,
+) -> StdResult<Binary> {
+    let player = deps.api.canonical_address(account)?;
+    let game_state_response = get_game_state_response(&deps.storage, player)?;
+
+    let response = QueryAnswer::GameState {
+        round: game_state_response.round,
+        wager: game_state_response.wager,
+        chip_color: game_state_response.chip_color,
+        chip_shape: game_state_response.chip_shape,
+        hint: game_state_response.hint,
+        first_submit: game_state_response.first_submit,
+        second_submit: game_state_response.second_submit,
+        opponent_first_submit: game_state_response.opponent_first_submit,
+        opponent_second_submit: game_state_response.opponent_second_submit,
+        guess: game_state_response.guess,
+        opponent_guess: game_state_response.opponent_guess,
+        round_result: game_state_response.round_result,
+        opponent_round_result: game_state_response.opponent_round_result,
+        finished: game_state_response.finished,
     };
     to_binary(&response)
 }

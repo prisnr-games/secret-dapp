@@ -132,7 +132,7 @@ pub fn get_number_of_games<S: Storage>(
     let storage = if let Some(result) = AppendStore::<GameState, _>::attach(&storage) {
         result?
     } else {
-        return Err(StdError::generic_err("Error accessing game state storage"));
+        return Ok(0_u32);
     };
 
     Ok(storage.len())
