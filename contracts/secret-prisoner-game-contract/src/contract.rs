@@ -112,6 +112,19 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
         }
     }
 
+    // check that player has sent correct funds to match the stakes
+    let stakes = get_config(&deps.storage)?.stakes;
+    if env.message.sent_funds.len() != 1 {
+        return Err(StdError::generic_err("Incorrect funds sent to join game"));
+    }
+    let funds = &env.message.sent_funds[0];
+    if funds.denom != "uscrt" {
+        return Err(StdError::generic_err("Incorrect coin type sent to join game"));
+    }
+    if funds.amount.u128() != stakes {
+        return Err(StdError::generic_err(format!("Incorrect amount sent, must be {} uscrt", stakes)));
+    }
+
     let number_of_games = get_number_of_games(&deps.storage)?;
     let game_ready: bool;
     let mut game_state: Option<GameState> = None;
@@ -128,13 +141,14 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
     if !game_ready {
         // if yes: create a new game state with player_a
         //   create_new_game sets the current game for player to this one
-        create_new_game(&mut deps.storage, &player)?;
+        create_new_game(&mut deps.storage, &player, funds.amount.u128())?;
     } else {
         // if no: add player_b to waiting game_state, create first round and assign chips
         let mut game_state = game_state.unwrap();
         game_state.player_b = Some(player.clone());
-        // TODO: add player wager parameters
-        let new_round = create_new_round(&deps.storage, None, None)?;
+        game_state.player_b_wager = Some(funds.amount.u128());
+
+        let new_round = create_new_round(&deps.storage)?;
         game_state.round_state = Some(new_round);
         game_state.round = 1_u8;
         update_game_state(&mut deps.storage, number_of_games - 1, &game_state)?;
@@ -628,7 +642,7 @@ fn get_game_state_response<S: Storage>(
     player: CanonicalAddr,
 ) -> StdResult<GameStateResponse> {
     let mut round: Option<u8> = None;
-    let mut wager: Option<Coin> = None;
+    let mut wager: Option<Uint128> = None;
     let mut chip_color: Option<String> = None;
     let mut chip_shape: Option<String> = None;
     let mut hint: Option<String> = None;
@@ -646,11 +660,11 @@ fn get_game_state_response<S: Storage>(
     if current_game.is_some() {
         let game_state: GameState = get_game_state(storage, current_game.unwrap())?;
         if player == game_state.player_a {
+            wager = Some(Uint128(game_state.player_a_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
             if game_state.round_state.is_some() {
                 let round_state = game_state.round_state.unwrap();
-                wager = round_state.player_a_wager;
                 let chip = round_state.player_a_chip;
                 chip_color = Some(color_to_string(Color::from_u8(chip.color)?));
                 chip_shape = Some(shape_to_string(Shape::from_u8(chip.shape)?));
@@ -686,11 +700,11 @@ fn get_game_state_response<S: Storage>(
                 }
             }
         } else if player == game_state.player_b.unwrap() {
+            wager = Some(Uint128(game_state.player_b_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
             if game_state.round_state.is_some() {
                 let round_state = game_state.round_state.unwrap();
-                wager = round_state.player_b_wager;
                 let chip = round_state.player_b_chip;
                 chip_color = Some(color_to_string(Color::from_u8(chip.color)?));
                 chip_shape = Some(shape_to_string(Shape::from_u8(chip.shape)?));

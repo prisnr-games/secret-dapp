@@ -11,6 +11,7 @@ use crate::types::{Color, Shape, Chip, RoundResult, RoundStage, Guess, Hint, Sto
 use crate::random::{get_random_color, get_random_shape, get_random_number};
 
 pub static CONFIG_KEY: &[u8] = b"config";
+pub static POOL_KEY: &[u8] = b"pool";
 pub static GAME_PREFIX: &[u8] = b"game";
 pub static PLAYER_PREFIX: &[u8] = b"player";
 pub static CURRENT_GAME_PREFIX: &[u8] = b"current-game";
@@ -43,12 +44,30 @@ pub fn get_config<S: ReadonlyStorage>(storage: &S) -> StdResult<Config> {
     get_bin_data(storage, CONFIG_KEY)
 }
 
+///
+/// Pool size
+/// 
+
+pub fn set_pool<S: Storage>(
+    storage: &mut S,
+    amount: u128,
+) -> StdResult<()> {
+    set_bin_data(storage, POOL_KEY, &amount)
+}
+
+pub fn get_pool<S: ReadonlyStorage>(
+    storage: &S,
+) -> StdResult<u128> {
+    get_bin_data(storage, POOL_KEY)
+}
+
+///
+/// Game state
+///
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct RoundState {
     pub stage: u8,
-
-    pub player_a_wager: Option<Coin>,
-    pub player_b_wager: Option<Coin>,
 
     pub bag_chip: StoredChip,
     pub player_a_chip: StoredChip,
@@ -75,6 +94,9 @@ pub struct GameState {
     pub player_a: CanonicalAddr,
     pub player_b: Option<CanonicalAddr>,
 
+    pub player_a_wager: Option<u128>,
+    pub player_b_wager: Option<u128>,
+
     pub round: u8, // round 0 means second player has not joined, yet
     pub round_state: Option<RoundState>,
     pub finished: bool,
@@ -87,6 +109,7 @@ pub struct GameState {
 fn store_new_game<S: Storage>(
     storage: &mut S,
     player: &CanonicalAddr,
+    wager: u128,
 ) -> StdResult<u32> {
     let mut storage = PrefixedStorage::new(GAME_PREFIX, storage);
     let mut storage = AppendStoreMut::<GameState, _>::attach_or_create(&mut storage)?;
@@ -94,6 +117,8 @@ fn store_new_game<S: Storage>(
     let game_state = GameState {
         player_a: player.clone(),
         player_b: None,
+        player_a_wager: Some(wager),
+        player_b_wager: None,
         round: 0_u8,
         round_state: None,
         finished: false,
@@ -105,8 +130,9 @@ fn store_new_game<S: Storage>(
 pub fn create_new_game<S: Storage>(
     storage: &mut S,
     player: &CanonicalAddr,
+    wager: u128,
 ) -> StdResult<()> {
-    let game_idx = store_new_game(storage, player)?;
+    let game_idx = store_new_game(storage, player, wager)?;
     set_current_game(storage, player, Some(game_idx))
 }
 
@@ -198,8 +224,6 @@ fn pick_hint<S: Storage>(
 
 pub fn create_new_round<S: Storage>(
     storage: &S,
-    player_a_wager: Option<Coin>,
-    player_b_wager: Option<Coin>,
 ) -> StdResult<RoundState> {
     let mut color_options: Vec<Color> = vec!(
         Color::Red,
@@ -235,8 +259,6 @@ pub fn create_new_round<S: Storage>(
 
     Ok(RoundState {
         stage: RoundStage::Initialized.u8_val(),
-        player_a_wager,
-        player_b_wager,
         bag_chip: bag_chip.to_stored(),
         player_a_chip: player_a_chip.to_stored(),
         player_b_chip: player_b_chip.to_stored(),

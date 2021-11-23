@@ -76,7 +76,7 @@ pub enum ResponseStatus {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GameStateResponse {
     pub round: Option<u8>,
-    pub wager: Option<Coin>,
+    pub wager: Option<Uint128>,
     pub chip_color: Option<String>,
     pub chip_shape: Option<String>,
     pub hint: Option<String>,
@@ -143,7 +143,7 @@ pub enum QueryWithPermit {
 pub enum QueryAnswer {
     GameState {
         round: Option<u8>,
-        wager: Option<Coin>,
+        wager: Option<Uint128>,
         chip_color: Option<String>,
         chip_shape: Option<String>,
         hint: Option<String>,

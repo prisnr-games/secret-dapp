@@ -3,6 +3,15 @@ use cosmwasm_std::{
 };
 use serde::{Deserialize, Serialize};
 
+pub const Red: u8 = 0b10000000u8;
+pub const Green: u8 = 0b01000000u8;
+pub const Blue: u8 = 0b00100000u8;
+pub const Black: u8 = 0b00010000u8;
+pub const Triangle: u8 = 0b00001000u8;
+pub const Circle: u8 = 0b00000100u8;
+pub const Square: u8 = 0b00000010u8;
+pub const Star: u8 = 0b00000001u8;
+
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GameStage {

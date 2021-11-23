@@ -58,8 +58,10 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>,
             return Err(StdError::generic_err("Invalid color in color options when picking a random color"));
         }
     }
+    debug_print(format!("color weight total: {}", total));
 
     let roll = get_random_number(storage) % total;
+    debug_print(format!("color roll: {}", roll));
 
     let mut interval_start = 0_u64;
     let mut picked_color: Option<Color> = None;
@@ -76,6 +78,7 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>,
     if remove && picked_index.is_some() {
         color_options.swap_remove(picked_index.unwrap());
     }
+    debug_print(format!("picked color: {:?}", picked_color));
     Ok(picked_color)
 }
 
