@@ -3,7 +3,7 @@ use cosmwasm_std::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GameStage {
     WaitingForSecondPlayer,
@@ -30,7 +30,7 @@ impl GameStage {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum RoundStage {
     Initialized,
@@ -69,7 +69,7 @@ impl RoundStage {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum RoundResult {
     BagCorrect,
@@ -102,7 +102,7 @@ impl RoundResult {
     }
 }
 
-#[derive(Hash, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Hash, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Color {
     Red,
@@ -132,7 +132,7 @@ impl Color {
     }
 }
 
-#[derive(Hash, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Hash, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Shape {
     Triangle,
@@ -162,7 +162,7 @@ impl Shape {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Chip {
     pub color: Color,
     pub shape: Shape,
@@ -193,7 +193,7 @@ impl StoredChip {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Hint {
     BagNotRed,
@@ -259,7 +259,7 @@ impl Hint {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Target {
     Bag,

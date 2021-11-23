@@ -91,18 +91,60 @@ CONTRACT=secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg
 
 ## Command line interaction with the contract
 
+Each 
+
 ### Joining a game
 
 Player `a` joining a game.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"join":{}}' --from a --keyring-backend test --gas 32000 -y
+secretd tx compute execute $CONTRACT '{"join":{}}' --from a --keyring-backend test --gas 35000 -y
 ```
 
 Player `b` joining a game.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend test --gas 32000 -y
+secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend test --gas 35000 -y
+```
+
+### Submitting hints to other player
+
+Player `a` submits first hint to player `b`.
+
+```sh
+secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","color":"red"}}' --from a --keyring-backend test --gas 35000 -y
+```
+
+Player `b` submits first hint to player `a`.
+
+```sh
+secretd tx compute execute $CONTRACT '{"submit":{"target":"bag_not","shape":"triangle"}}' --from b --keyring-backend test --gas 35000 -y
+```
+
+Player `b` submits second hint to player `a`.
+
+```sh
+secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","shape":"star"}}' --from b --keyring-backend test --gas 35000 -y
+```
+
+Player `a` submits second hint to player `b`.
+
+```sh
+secretd tx compute execute $CONTRACT '{"submit":{"target":"bag_not","color":"black"}}' --from a --keyring-backend test --gas 35000 -y
+```
+
+### Guessing answer
+
+Player `a` guesses bag is green triangle.
+
+```sh
+secretd tx compute execute $CONTRACT '{"guess":{"target":"bag","shape":"triangle","color":"green"}}' --from a --keyring-backend test --gas 35000 -y
+```
+
+Player `b` guesses player `a` has a blue circle.
+
+```sh
+secretd tx compute execute $CONTRACT '{"guess":{"target":"opponent","shape":"circle","color":"blue"}}' --from b --keyring-backend test --gas 35000 -y
 ```
 
 ### Creating a query permit

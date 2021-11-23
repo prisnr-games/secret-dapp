@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     //debug_print, 
     to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
-    StdError, StdResult, Storage, CanonicalAddr,
+    StdError, StdResult, Storage, CanonicalAddr, Uint128,
 };
 use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
 
@@ -32,6 +32,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let circle_weight = msg.circle_weight.unwrap_or(25);
     let star_weight = msg.star_weight.unwrap_or(25);
 
+    let stakes = msg.stakes.unwrap_or(Uint128(1000000));
+    let stakes = stakes.u128();
+
     let admin = deps.api.canonical_address(&env.message.sender)?;
     let contract_address = deps.api.canonical_address(&env.contract.address)?;
 
@@ -46,6 +49,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         square_weight,
         circle_weight,
         star_weight,
+        stakes,
     };
 
     set_config(

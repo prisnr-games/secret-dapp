@@ -1,5 +1,5 @@
 use std::collections::{HashMap};
-use cosmwasm_std::{StdResult, StdError, Storage};
+use cosmwasm_std::{StdResult, StdError, Storage, debug_print};
 use cosmwasm_storage::{ReadonlySingleton, Singleton};
 
 use rand::{RngCore, SeedableRng};
@@ -102,8 +102,10 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>,
             return Err(StdError::generic_err("Invalid shape in shape options when picking a random shape"));
         }
     }
+    debug_print(format!("shape weight total: {}", total));
 
     let roll = get_random_number(storage) % total;
+    debug_print(format!("shape roll: {}", roll));
 
     let mut interval_start = 0_u64;
     let mut picked_shape: Option<Shape> = None;
@@ -120,6 +122,7 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>,
     if remove && picked_index.is_some() {
         shape_options.swap_remove(picked_index.unwrap());
     }
+    debug_print(format!("picked shape: {:?}", picked_shape));
     Ok(picked_shape)
 }
 

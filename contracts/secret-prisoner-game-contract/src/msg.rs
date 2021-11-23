@@ -1,6 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{Coin, HumanAddr,};
+use cosmwasm_std::{Coin, HumanAddr, Uint128,};
 use secret_toolkit::permit::Permit;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -18,6 +18,8 @@ pub struct InitMsg {
     pub circle_weight: Option<u16>,
     pub star_weight: Option<u16>,
 
+    // stakes for a game in uscrt (default = 1000000)
+    pub stakes: Option<Uint128>,
     //pub low_stakes: Coin,
     //pub medium_stakes: Coin,
     //pub high_stakes: Coin,

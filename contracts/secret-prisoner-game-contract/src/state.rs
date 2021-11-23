@@ -29,6 +29,7 @@ pub struct Config {
     pub square_weight: u16,
     pub circle_weight: u16,
     pub star_weight: u16,
+    pub stakes: u128,
 }
 
 pub fn set_config<S: Storage>(
