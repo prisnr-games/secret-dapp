@@ -3,14 +3,14 @@ use cosmwasm_std::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const Red: u8 = 0b10000000u8;
-pub const Green: u8 = 0b01000000u8;
-pub const Blue: u8 = 0b00100000u8;
-pub const Black: u8 = 0b00010000u8;
-pub const Triangle: u8 = 0b00001000u8;
-pub const Circle: u8 = 0b00000100u8;
-pub const Square: u8 = 0b00000010u8;
-pub const Star: u8 = 0b00000001u8;
+pub const RED: u8 = 0b10000000u8;
+pub const GREEN: u8 = 0b01000000u8;
+pub const BLUE: u8 = 0b00100000u8;
+pub const BLACK: u8 = 0b00010000u8;
+pub const TRIANGLE: u8 = 0b00001000u8;
+pub const CIRCLE: u8 = 0b00000100u8;
+pub const SQUARE: u8 = 0b00000010u8;
+pub const STAR: u8 = 0b00000001u8;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
@@ -205,14 +205,14 @@ impl StoredChip {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Hint {
-    BagNotRed,
-    BagNotGreen,
-    BagNotBlue,
-    BagNotBlack,
-    BagNotTriangle,
-    BagNotSquare,
-    BagNotCircle,
-    BagNotStar,
+    NobodyHasRed,
+    NobodyHasGreen,
+    NobodyHasBlue,
+    NobodyHasBlack,
+    NobodyHasTriangle,
+    NobodyHasSquare,
+    NobodyHasCircle,
+    NobodyHasStar,
     IHaveRed,
     IHaveGreen,
     IHaveBlue,
@@ -226,14 +226,14 @@ pub enum Hint {
 impl Hint {
     pub fn u8_val(&self) -> u8 {
         match self {
-            Hint::BagNotRed => 0_u8,
-            Hint::BagNotGreen => 1_u8,
-            Hint::BagNotBlue => 2_u8,
-            Hint::BagNotBlack => 3_u8,
-            Hint::BagNotTriangle => 4_u8,
-            Hint::BagNotSquare => 5_u8,
-            Hint::BagNotCircle => 6_u8,
-            Hint::BagNotStar => 7_u8,
+            Hint::NobodyHasRed => 0_u8,
+            Hint::NobodyHasGreen => 1_u8,
+            Hint::NobodyHasBlue => 2_u8,
+            Hint::NobodyHasBlack => 3_u8,
+            Hint::NobodyHasTriangle => 4_u8,
+            Hint::NobodyHasSquare => 5_u8,
+            Hint::NobodyHasCircle => 6_u8,
+            Hint::NobodyHasStar => 7_u8,
             Hint::IHaveRed => 8_u8,
             Hint::IHaveGreen => 9_u8,
             Hint::IHaveBlue => 10_u8,
@@ -247,14 +247,14 @@ impl Hint {
 
     pub fn from_u8(val: u8) -> StdResult<Hint> {
         match val {
-            0_u8 => Ok(Hint::BagNotRed),
-            1_u8 => Ok(Hint::BagNotGreen),
-            2_u8 => Ok(Hint::BagNotBlue),
-            3_u8 => Ok(Hint::BagNotBlack),
-            4_u8 => Ok(Hint::BagNotTriangle),
-            5_u8 => Ok(Hint::BagNotSquare),
-            6_u8 => Ok(Hint::BagNotCircle),
-            7_u8 => Ok(Hint::BagNotStar),
+            0_u8 => Ok(Hint::NobodyHasRed),
+            1_u8 => Ok(Hint::NobodyHasGreen),
+            2_u8 => Ok(Hint::NobodyHasBlue),
+            3_u8 => Ok(Hint::NobodyHasBlack),
+            4_u8 => Ok(Hint::NobodyHasTriangle),
+            5_u8 => Ok(Hint::NobodyHasSquare),
+            6_u8 => Ok(Hint::NobodyHasCircle),
+            7_u8 => Ok(Hint::NobodyHasStar),
             8_u8 => Ok(Hint::IHaveRed),
             9_u8 => Ok(Hint::IHaveGreen),
             10_u8 => Ok(Hint::IHaveBlue),

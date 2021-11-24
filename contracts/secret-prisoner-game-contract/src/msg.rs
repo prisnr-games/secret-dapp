@@ -36,7 +36,7 @@ pub enum HandleMsg {
     },
 
     Submit {
-        // one of {"i_have", "bag_not"}
+        // one of {"nobody_has", "bag_not"}
         target: String,
         // one of {"triangle", "square", "circle", "star"}
         shape: Option<String>,

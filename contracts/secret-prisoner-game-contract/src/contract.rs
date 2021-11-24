@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    //debug_print, 
+    debug_print, 
     to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
     StdError, StdResult, Storage, CanonicalAddr, Uint128,
 };
@@ -172,6 +172,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
     shape: Option<String>,
 ) -> StdResult<HandleResponse> {
     let player = deps.api.canonical_address(&env.message.sender)?;
+    debug_print(format!("Player {} submitting hint", env.message.sender));
 
     if (color.is_none() && shape.is_none()) || (color.is_some() && shape.is_some()) {
         return Err(StdError::generic_err("Hint must be either a color or shape but not both"));
@@ -199,21 +200,21 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 }
             }
         },
-        "bag_not" => {
+        "nobody_has" => {
             if color.is_some() {
                 match color.unwrap().as_str() {
-                    "red" => { hint = Hint::BagNotRed },
-                    "green" => { hint = Hint::BagNotGreen },
-                    "blue" => { hint = Hint::BagNotBlue },
-                    "black" => { hint = Hint::BagNotBlack },
+                    "red" => { hint = Hint::NobodyHasRed },
+                    "green" => { hint = Hint::NobodyHasGreen },
+                    "blue" => { hint = Hint::NobodyHasBlue },
+                    "black" => { hint = Hint::NobodyHasBlack },
                     _ => { return Err(StdError::generic_err("Invalid color")); },
                 }
             } else { // shape
                 match shape.unwrap().as_str() {
-                    "triangle" => { hint = Hint::BagNotTriangle },
-                    "square" => { hint = Hint::BagNotSquare },
-                    "circle" => { hint = Hint::BagNotCircle },
-                    "star" => { hint = Hint::BagNotStar },
+                    "triangle" => { hint = Hint::NobodyHasTriangle },
+                    "square" => { hint = Hint::NobodyHasSquare },
+                    "circle" => { hint = Hint::NobodyHasCircle },
+                    "star" => { hint = Hint::NobodyHasStar },
                     _ => { return Err(StdError::generic_err("Invalid shape")); },
                 }
             }
@@ -586,14 +587,14 @@ fn shape_to_string(shape: Shape) -> String {
 
 fn hint_to_string(hint: Hint) -> String {
     match hint {
-        Hint::BagNotRed => "bag_not|red".to_string(),
-        Hint::BagNotGreen => "bag_not|green".to_string(),
-        Hint::BagNotBlue => "bag_not|blue".to_string(),
-        Hint::BagNotBlack => "bag_not|black".to_string(),
-        Hint::BagNotTriangle => "bag_not|triangle".to_string(),
-        Hint::BagNotSquare => "bag_not|square".to_string(),
-        Hint::BagNotCircle => "bag_not|circle".to_string(),
-        Hint::BagNotStar => "bag_not|star".to_string(),
+        Hint::NobodyHasRed => "nobody_has|red".to_string(),
+        Hint::NobodyHasGreen => "nobody_has|green".to_string(),
+        Hint::NobodyHasBlue => "nobody_has|blue".to_string(),
+        Hint::NobodyHasBlack => "nobody_has|black".to_string(),
+        Hint::NobodyHasTriangle => "nobody_has|triangle".to_string(),
+        Hint::NobodyHasSquare => "nobody_has|square".to_string(),
+        Hint::NobodyHasCircle => "nobody_has|circle".to_string(),
+        Hint::NobodyHasStar => "nobody_has|star".to_string(),
         Hint::IHaveRed => "i_have|red".to_string(),
         Hint::IHaveGreen => "i_have|green".to_string(),
         Hint::IHaveBlue => "i_have|blue".to_string(),

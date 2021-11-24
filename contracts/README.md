@@ -17,15 +17,22 @@ apt install build-essential
 cargo install cargo-generate --features vendored-openssl
 ```
 
-## Compile optimized version of the secret prisoner contract
+## Compile local version of the secret prisoner contract
 
 ```sh
 cd secret-prisoner-game-contract
 
-docker run --rm -v "$(pwd)":/contract \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  enigmampc/secret-contract-optimizer:1.0.5
+make build
+```
+
+This version includes `debug-print` statements.
+
+## Compile reproducible mainnet version of the secret prisoner contract
+
+```sh
+cd secret-prisoner-game-contract
+
+make build-mainnet-reproducible
 ```
 
 To get the code hash for the compiled contract run this:

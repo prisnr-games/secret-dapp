@@ -204,19 +204,19 @@ fn pick_hint<S: Storage>(
         // color
         let hint_color = get_random_color(storage, color_options, false)?.unwrap();
         match hint_color {
-            Color::Red => { hint = Hint::BagNotRed },
-            Color::Green => { hint = Hint::BagNotGreen },
-            Color::Blue => { hint = Hint::BagNotBlue },
-            Color::Black => { hint = Hint::BagNotBlack },
+            Color::Red => { hint = Hint::NobodyHasRed },
+            Color::Green => { hint = Hint::NobodyHasGreen },
+            Color::Blue => { hint = Hint::NobodyHasBlue },
+            Color::Black => { hint = Hint::NobodyHasBlack },
         }
     } else {
         // shape
         let hint_shape = get_random_shape(storage, shape_options, false)?.unwrap();
         match hint_shape {
-            Shape::Triangle => { hint = Hint::BagNotTriangle },
-            Shape::Square=> { hint = Hint::BagNotSquare },
-            Shape::Circle => { hint = Hint::BagNotCircle },
-            Shape::Star => { hint = Hint::BagNotStar },
+            Shape::Triangle => { hint = Hint::NobodyHasTriangle },
+            Shape::Square=> { hint = Hint::NobodyHasSquare },
+            Shape::Circle => { hint = Hint::NobodyHasCircle },
+            Shape::Star => { hint = Hint::NobodyHasStar },
         }
     }
     Ok(hint)

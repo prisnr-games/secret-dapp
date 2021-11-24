@@ -34,10 +34,10 @@ backtraces = ["cosmwasm-std/backtraces"]
 debug-print = ["cosmwasm-std/debug-print"]
 
 [dependencies]
-cosmwasm-std = { git = "https://github.com/enigmampc/SecretNetwork", tag = "v1.2.1" }
-cosmwasm-storage = { git = "https://github.com/enigmampc/SecretNetwork", tag = "v1.2.1" }
+cosmwasm-std = { git = "https://github.com/enigmampc/SecretNetwork", tag = "v1.2.3" }
+cosmwasm-storage = { git = "https://github.com/enigmampc/SecretNetwork", tag = "v1.2.3" }
 #secret-toolkit = { git = "https://github.com/enigmampc/secret-toolkit", rev = "b57fa0b01746cbdb5c3cf2bd3a8fdc5bfb86ed86" }
-secret-toolkit = { git = "https://github.com/darwinzer0/secret-toolkit", rev = "45d2bc48bfd677d1dba496ad693d105af6331f7b" }
+secret-toolkit = { git = "https://github.com/darwinzer0/secret-toolkit", rev = "561e841ddbb37b87c39e1afaad28d00761343688" }
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 snafu = { version = "0.6.3" }
