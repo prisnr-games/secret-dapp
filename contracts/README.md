@@ -72,7 +72,7 @@ Now we initialize the contract from the test user `a`. The `CODE_ID` might be di
 ```sh
 CODE_ID=1
 
-INIT='{"rounds_per_game": 1, "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25}'
+INIT='{"rounds_per_game": 1, "stakes": "1000000", "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25}'
 
 secretd tx compute instantiate $CODE_ID "$INIT" --from a --label "secret-prisoners-0.0.1" -y --keyring-backend test --gas 30000
 ```
@@ -164,7 +164,7 @@ echo '{
                 "allowed_tokens": [
                     "secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"
                 ],
-                "permissions": ["owner"],
+                "permissions": ["owner"]
             }
         }
     ],
