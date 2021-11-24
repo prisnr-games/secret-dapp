@@ -35,6 +35,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let stakes = msg.stakes.unwrap_or(Uint128(1000000));
     let stakes = stakes.u128();
 
+    let timeout = msg.timeout.unwrap_or(10);
+
     let admin = deps.api.canonical_address(&env.message.sender)?;
     let contract_address = deps.api.canonical_address(&env.contract.address)?;
 
@@ -50,6 +52,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         circle_weight,
         star_weight,
         stakes,
+        timeout,
     };
 
     set_config(

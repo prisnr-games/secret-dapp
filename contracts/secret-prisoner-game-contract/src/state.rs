@@ -31,6 +31,7 @@ pub struct Config {
     pub circle_weight: u16,
     pub star_weight: u16,
     pub stakes: u128,
+    pub timeout: u64,
 }
 
 pub fn set_config<S: Storage>(

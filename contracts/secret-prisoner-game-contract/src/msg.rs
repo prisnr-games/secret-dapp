@@ -23,6 +23,9 @@ pub struct InitMsg {
     //pub low_stakes: Coin,
     //pub medium_stakes: Coin,
     //pub high_stakes: Coin,
+
+    // timeout per turn, in # of blocks
+    pub timeout: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
