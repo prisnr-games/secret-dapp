@@ -69,6 +69,8 @@ pub fn get_pool<S: ReadonlyStorage>(
 #[derive(Serialize, Deserialize, Clone)]
 pub struct RoundState {
     pub stage: u8,
+    // block height when the round started
+    pub round_start_block: u64,
 
     pub bag_chip: StoredChip,
     pub player_a_chip: StoredChip,
@@ -98,6 +100,9 @@ pub struct GameState {
     pub player_a_wager: Option<u128>,
     pub player_b_wager: Option<u128>,
 
+    pub player_a_last_move_block: Option<u64>,
+    pub player_b_last_move_block: Option<u64>,
+
     pub round: u8, // round 0 means second player has not joined, yet
     pub round_state: Option<RoundState>,
     pub finished: bool,
@@ -120,6 +125,8 @@ fn store_new_game<S: Storage>(
         player_b: None,
         player_a_wager: Some(wager),
         player_b_wager: None,
+        player_a_last_move_block: None,
+        player_b_last_move_block: None,
         round: 0_u8,
         round_state: None,
         finished: false,
@@ -225,6 +232,7 @@ fn pick_hint<S: Storage>(
 
 pub fn create_new_round<S: Storage>(
     storage: &S,
+    block: u64,
 ) -> StdResult<RoundState> {
     let mut color_options: Vec<Color> = vec!(
         Color::Red,
@@ -260,6 +268,7 @@ pub fn create_new_round<S: Storage>(
 
     Ok(RoundState {
         stage: RoundStage::Initialized.u8_val(),
+        round_start_block: block,
         bag_chip: bag_chip.to_stored(),
         player_a_chip: player_a_chip.to_stored(),
         player_b_chip: player_b_chip.to_stored(),

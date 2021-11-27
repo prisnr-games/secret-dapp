@@ -14,3 +14,7 @@ contract.wasm*
 # IDEs
 *.iml
 .idea
+
+permit.json
+sig-a.json
+sig-b.json

@@ -184,6 +184,23 @@ impl Chip {
             shape: self.shape.u8_val(),
         }
     }
+
+    pub fn to_bitmask(&self) -> u8 {
+        let mut mask: u8 = 0;
+        match self.color {
+            Color::Red => mask |= RED,
+            Color::Green => mask |= GREEN,
+            Color::Blue => mask |= BLUE,
+            Color::Black => mask |= BLACK,
+        }
+        match self.shape {
+            Shape::Triangle => mask |= TRIANGLE,
+            Shape::Square => mask |= SQUARE,
+            Shape::Circle => mask |= CIRCLE,
+            Shape::Star => mask |= STAR,
+        }
+        mask
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]

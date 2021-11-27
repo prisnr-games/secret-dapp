@@ -26,6 +26,7 @@ pub fn supply_more_entropy<S: Storage>(
     additional_entropy: &[u8],
 ) -> StdResult<()> {
     let current_entropy_pool = get_current_entropy_pool(storage);
+    println!("{:?}", current_entropy_pool);
 
     let mut new_entropy_source = Vec::from(current_entropy_pool);
     new_entropy_source.extend(additional_entropy);
@@ -61,6 +62,7 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>,
     debug_print(format!("color weight total: {}", total));
 
     let roll = get_random_number(storage) % total;
+    println!("{}", roll);
     debug_print(format!("color roll: {}", roll));
 
     let mut interval_start = 0_u64;
@@ -71,6 +73,7 @@ pub fn get_random_color<S: Storage>(storage: &S, color_options: &mut Vec<Color>,
             if roll < interval_start + pct {
                 picked_index = Some(i);
                 picked_color = Some(color.clone());
+                break;
             }
             interval_start = interval_start + pct;
         }
@@ -108,6 +111,7 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>,
     debug_print(format!("shape weight total: {}", total));
 
     let roll = get_random_number(storage) % total;
+    println!("{}", roll);
     debug_print(format!("shape roll: {}", roll));
 
     let mut interval_start = 0_u64;
@@ -118,6 +122,7 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>,
             if roll < interval_start + pct {
                 picked_index = Some(i);
                 picked_shape = Some(shape.clone());
+                break;
             }
             interval_start = interval_start + pct;
         }

@@ -60,7 +60,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         config,
     )?;
 
-    //debug_print!("Contract was initialized by {}", env.message.sender);
+    debug_print!("Contract was initialized by {}", env.message.sender);
 
     Ok(InitResponse::default())
 }
@@ -151,7 +151,7 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
         game_state.player_b = Some(player.clone());
         game_state.player_b_wager = Some(funds.amount.u128());
 
-        let new_round = create_new_round(&deps.storage)?;
+        let new_round = create_new_round(&deps.storage, env.block.height)?;
         game_state.round_state = Some(new_round);
         game_state.round = 1_u8;
         update_game_state(&mut deps.storage, number_of_games - 1, &game_state)?;
@@ -800,30 +800,102 @@ fn query_player_stats<S: Storage, A: Api, Q: Querier>(
     to_binary(&response)
 }
 
-/*
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{coins, from_binary, StdError};
+    use crate::msg::{InitMsg};
+    use crate::random::{get_random_color, get_random_shape, get_random_number,};
 
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies(20, &[]);
 
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(1000, "earth"));
+        let msg = InitMsg {
+            admin: None,
+            rounds_per_game: 2,
+            red_weight: Some(25),
+            blue_weight: Some(25),
+            green_weight: Some(25),
+            black_weight: Some(25),
+            triangle_weight: Some(25),
+            square_weight: Some(25),
+            circle_weight: Some(25),
+            star_weight: Some(25),
+            stakes: Some(Uint128(1000000)),
+            timeout: Some(20),
+        };
+        let env = mock_env("creator", &coins(1000, "uscrt"));
 
         // we can just call .unwrap() to assert this was a success
         let res = init(&mut deps, env, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(17, value.count);
+        //let res = query(&deps, QueryMsg::PlayerStats {}).unwrap();
+        //let value: CountResponse = from_binary(&res).unwrap();
+        //assert_eq!(17, value.count);
     }
 
+    #[test]
+    fn random_color_shape() {
+        let mut deps = mock_dependencies(20, &[]);
+        let env = mock_env("creator", &coins(1000, "uscrt"));
+
+        let msg = InitMsg {
+            admin: None,
+            rounds_per_game: 2,
+            red_weight: Some(25),
+            blue_weight: Some(25),
+            green_weight: Some(25),
+            black_weight: Some(25),
+            triangle_weight: Some(25),
+            square_weight: Some(25),
+            circle_weight: Some(25),
+            star_weight: Some(25),
+            stakes: Some(Uint128(1000000)),
+            timeout: Some(20),
+        };
+        let res = init(&mut deps, env.clone(), msg).unwrap();
+
+        let msg = HandleMsg::Join { padding: None, };
+
+        let mut fresh_entropy = to_binary(&msg).unwrap().0;
+        fresh_entropy.extend(to_binary(&env).unwrap().0);
+        println!("{:?}", fresh_entropy);
+
+        supply_more_entropy(&mut deps.storage, fresh_entropy.as_slice()).unwrap();
+        let mut color_options = vec![
+            Color::Red,
+            Color::Green,
+            Color::Blue,
+            Color::Black,
+        ];
+        println!("{:?}", color_options);
+        
+        let color = get_random_color(&deps.storage, &mut color_options, true);
+        println!("{:?}", color);
+
+        let mut fresh_entropy = to_binary(&msg).unwrap().0;
+        fresh_entropy.extend(to_binary(&env).unwrap().0);
+        println!("{:?}", fresh_entropy);
+
+        supply_more_entropy(&mut deps.storage, fresh_entropy.as_slice()).unwrap();
+
+        let mut color_options = vec![
+            Color::Red,
+            Color::Green,
+            Color::Blue,
+            Color::Black,
+        ];
+        println!("{:?}", color_options);
+        
+        let color = get_random_color(&deps.storage, &mut color_options, true);
+        println!("{:?}", color);
+    }
+/*
     #[test]
     fn increment() {
         let mut deps = mock_dependencies(20, &coins(2, "token"));
@@ -870,5 +942,5 @@ mod tests {
         let value: CountResponse = from_binary(&res).unwrap();
         assert_eq!(5, value.count);
     }
-}
 */
+}
