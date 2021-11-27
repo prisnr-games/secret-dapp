@@ -16,6 +16,8 @@ use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Sh
 /// We make sure that responses from `handle` are padded to a multiple of this size.
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
+pub const DEFAULT_STAKES: Uint128 = Uint128(1000000);
+pub const DEFAULT_TIMEOUT: u64 = 20;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -32,10 +34,11 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let circle_weight = msg.circle_weight.unwrap_or(25);
     let star_weight = msg.star_weight.unwrap_or(25);
 
-    let stakes = msg.stakes.unwrap_or(Uint128(1000000));
+    let stakes = msg.stakes.unwrap_or(DEFAULT_STAKES);
     let stakes = stakes.u128();
 
-    let timeout = msg.timeout.unwrap_or(10);
+    // default timeout for each move is 20 blocks
+    let timeout = msg.timeout.unwrap_or(DEFAULT_TIMEOUT);
 
     let admin = deps.api.canonical_address(&env.message.sender)?;
     let contract_address = deps.api.canonical_address(&env.contract.address)?;

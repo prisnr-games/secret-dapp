@@ -102,16 +102,16 @@ Each
 
 ### Joining a game
 
-Player `a` joining a game.
+Player `a` joining a game, sending 1 SCRT wager.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"join":{}}' --from a --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"join":{}}' --from a --keyring-backend test --gas 35000 --amount 1000000uscrt -y
 ```
 
-Player `b` joining a game.
+Player `b` joining a game, sending 1 SCRT wager.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend test --gas 35000 --amount 1000000uscrt -y
 ```
 
 ### Submitting hints to other player
@@ -125,7 +125,7 @@ secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","color":"red"
 Player `b` submits first hint to player `a`.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"submit":{"target":"bag_not","shape":"triangle"}}' --from b --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"submit":{"target":"nobody_has","shape":"triangle"}}' --from b --keyring-backend test --gas 35000 -y
 ```
 
 Player `b` submits second hint to player `a`.
@@ -137,7 +137,7 @@ secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","shape":"star
 Player `a` submits second hint to player `b`.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"submit":{"target":"bag_not","color":"black"}}' --from a --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"submit":{"target":"nobody_has","color":"black"}}' --from a --keyring-backend test --gas 35000 -y
 ```
 
 ### Guessing answer
@@ -187,6 +187,13 @@ echo '{
     "memo": ""
 }' > ./permit.json
 
-secretd tx sign-doc ./permit.json --from a > ./sig.json
-
+secretd tx sign-doc ./permit.json --from a > ./sig-a.json
 ```
+
+To execute a game status query with permit for player a:
+
+```sh
+secretd q compute query secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg '{"with_permit":{"query":{"game_state":{}},"permit":{"params":{"permit_name":"Scrt Prisoners","allowed_tokens":["secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"],"chain_id":"secretdev-1","permissions":["owner"]},"signature":'"$(cat ./sig-a.json)"'}}}'
+```
+
+Repeat the same for player b.

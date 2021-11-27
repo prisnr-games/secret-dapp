@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
-use crate::types::{Color, Shape, Chip, RoundResult, RoundStage, Guess, Hint, StoredChip, StoredGuess};
+use crate::types::{Color, RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, Shape, Chip, RoundResult, RoundStage, Guess, Hint, StoredChip, StoredGuess};
 use crate::random::{get_random_color, get_random_shape, get_random_number};
 
 pub static CONFIG_KEY: &[u8] = b"config";
@@ -200,36 +200,6 @@ pub fn is_game_waiting_for_second_player<S: Storage>(
     Ok(game_state.player_b.is_none())
 }
 
-fn pick_hint<S: Storage>(
-    storage: &S,
-    color_options: &mut Vec<Color>,
-    shape_options: &mut Vec<Shape>,
-) -> StdResult<Hint> {
-    let hint: Hint;
-    let random_number = get_random_number(storage) % 100;
-    // 50/50 chance of getting color or shape as hint
-    if random_number < 50 {
-        // color
-        let hint_color = get_random_color(storage, color_options, false)?.unwrap();
-        match hint_color {
-            Color::Red => { hint = Hint::NobodyHasRed },
-            Color::Green => { hint = Hint::NobodyHasGreen },
-            Color::Blue => { hint = Hint::NobodyHasBlue },
-            Color::Black => { hint = Hint::NobodyHasBlack },
-        }
-    } else {
-        // shape
-        let hint_shape = get_random_shape(storage, shape_options, false)?.unwrap();
-        match hint_shape {
-            Shape::Triangle => { hint = Hint::NobodyHasTriangle },
-            Shape::Square=> { hint = Hint::NobodyHasSquare },
-            Shape::Circle => { hint = Hint::NobodyHasCircle },
-            Shape::Star => { hint = Hint::NobodyHasStar },
-        }
-    }
-    Ok(hint)
-}
-
 pub fn create_new_round<S: Storage>(
     storage: &S,
     block: u64,
@@ -253,9 +223,6 @@ pub fn create_new_round<S: Storage>(
         shape: get_random_shape(storage, &mut shape_options, true)?.unwrap(),
     };
 
-    let player_a_first_hint: Hint = pick_hint(storage, &mut color_options, &mut shape_options)?;
-    let player_b_first_hint: Hint = pick_hint(storage, &mut color_options, &mut shape_options)?;
-
     let player_a_chip = Chip {
         color: get_random_color(storage, &mut color_options, true)?.unwrap(),
         shape: get_random_shape(storage, &mut shape_options, true)?.unwrap(),
@@ -265,6 +232,37 @@ pub fn create_new_round<S: Storage>(
         color: get_random_color(storage, &mut color_options, true)?.unwrap(),
         shape: get_random_shape(storage, &mut shape_options, true)?.unwrap(),
     };
+
+    let player_a_first_hint: Hint;
+    let player_b_first_hint: Hint;
+    let available_hints_mask: u8 = !(bag_chip.to_bitmask() | player_a_chip.to_bitmask() | player_b_chip.to_bitmask());
+    let available_color: Hint;
+    let available_shape: Hint;
+    match available_hints_mask & 0xf0u8 {
+        RED => { available_color = Hint::NobodyHasRed },
+        GREEN => { available_color = Hint::NobodyHasGreen },
+        BLUE => { available_color = Hint::NobodyHasBlue },
+        BLACK => { available_color = Hint::NobodyHasBlack },
+        _ => { return Err(StdError::generic_err("Error calculating available color hint"));}
+    }
+    match available_hints_mask & 0x0fu8 {
+        TRIANGLE => { available_shape = Hint::NobodyHasTriangle },
+        SQUARE => { available_shape = Hint::NobodyHasSquare },
+        CIRCLE => { available_shape = Hint::NobodyHasCircle },
+        STAR => { available_shape = Hint::NobodyHasStar },
+        _ => { return Err(StdError::generic_err("Error calculating available shape hint"));}
+    }
+
+    let roll = get_random_number(storage) % 2;
+    if roll == 0 {
+        // give player a color hint, give player b shape hint
+        player_a_first_hint = available_color;
+        player_b_first_hint = available_shape;
+    } else {
+        // give player a shape hint, give player a color hint
+        player_a_first_hint = available_shape;
+        player_b_first_hint = available_color;
+    }
 
     Ok(RoundState {
         stage: RoundStage::Initialized.u8_val(),
