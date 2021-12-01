@@ -1208,8 +1208,8 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
 }
 
 fn query_player_stats<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    account: &HumanAddr,
+    _deps: &Extern<S, A, Q>,
+    _account: &HumanAddr,
 ) -> StdResult<Binary> {
     let response = QueryAnswer::PlayerStats {
         info: "TODO".to_string()
@@ -1222,9 +1222,9 @@ fn query_player_stats<S: Storage, A: Api, Q: Querier>(
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, from_binary, StdError};
+    use cosmwasm_std::{coins,};
     use crate::msg::{InitMsg};
-    use crate::random::{get_random_color, get_random_shape, get_random_number,};
+    use crate::random::{get_random_color,};
 
     #[test]
     fn proper_initialization() {
@@ -1275,7 +1275,7 @@ mod tests {
             stakes: Some(Uint128(1000000)),
             timeout: Some(20),
         };
-        let res = init(&mut deps, env.clone(), msg).unwrap();
+        let _res = init(&mut deps, env.clone(), msg).unwrap();
 
         let msg = HandleMsg::Join { padding: None, };
 

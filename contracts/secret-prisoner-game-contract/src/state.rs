@@ -3,11 +3,11 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
 use cosmwasm_std::{
-    CanonicalAddr, Coin, ReadonlyStorage, StdError, StdResult, Storage, 
+    CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, 
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
-use crate::types::{Color, RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, Shape, Chip, RoundResult, RoundStage, Guess, Hint, StoredChip, StoredGuess};
+use crate::types::{Color, RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, Shape, Chip, RoundStage, Hint, StoredChip, StoredGuess};
 use crate::random::{get_random_color, get_random_shape, get_random_number};
 
 pub static CONFIG_KEY: &[u8] = b"config";
