@@ -19,6 +19,7 @@ pub fn is_bitmask_color(mask: u8) -> bool {
     mask & 0xf0 > 0
 }
 
+/*
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GameStage {
@@ -45,6 +46,7 @@ impl GameStage {
         }
     }
 }
+*/
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
