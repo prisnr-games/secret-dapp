@@ -82,8 +82,16 @@ pub struct RoundState {
     pub player_a_first_submit: Option<u8>,
     pub player_b_first_submit: Option<u8>,
 
+    // if first submission is provably false, then this is the secret that is revealed
+    pub player_a_first_extra_secret: Option<u8>,
+    pub player_b_first_extra_secret: Option<u8>,
+
     pub player_a_second_submit: Option<u8>,
     pub player_b_second_submit: Option<u8>,
+
+    // if second submission is provably false, then this is the secret that is revealed
+    pub player_a_second_extra_secret: Option<u8>,
+    pub player_b_second_extra_secret: Option<u8>,
 
     pub player_a_guess: Option<StoredGuess>,
     pub player_b_guess: Option<StoredGuess>,
@@ -103,9 +111,17 @@ pub struct GameState {
     pub player_a_last_move_block: Option<u64>,
     pub player_b_last_move_block: Option<u64>,
 
-    pub round: u8, // round 0 means second player has not joined, yet
+    pub player_a_reward_pick: Option<u8>,
+    pub player_b_reward_pick: Option<u8>,
+
+    // round 0 means second player has not joined, yet
+    // round 1 means submitting hints, and guessing
+    // (no round 2 in first version)
+    // round 3 means in reward round
+    pub round: u8,
     pub round_state: Option<RoundState>,
     pub finished: bool,
+    pub result: Option<u8>,
 }
 
 ///
@@ -127,9 +143,12 @@ fn store_new_game<S: Storage>(
         player_b_wager: None,
         player_a_last_move_block: None,
         player_b_last_move_block: None,
+        player_a_reward_pick: None,
+        player_b_reward_pick: None,
         round: 0_u8,
         round_state: None,
         finished: false,
+        result: None,
     };
     storage.push(&game_state)?;
     Ok(storage.len()-1)
@@ -199,6 +218,10 @@ pub fn is_game_waiting_for_second_player<S: Storage>(
     let game_state = storage.get_at(storage.len()-1)?;
     Ok(game_state.player_b.is_none())
 }
+
+//
+// RoundState
+//
 
 pub fn create_new_round<S: Storage>(
     storage: &S,
@@ -274,8 +297,12 @@ pub fn create_new_round<S: Storage>(
         player_b_first_hint: player_b_first_hint.u8_val(),
         player_a_first_submit: None,
         player_b_first_submit: None,
+        player_a_first_extra_secret: None,
+        player_b_first_extra_secret: None,
         player_a_second_submit: None,
         player_b_second_submit: None,
+        player_a_second_extra_secret: None,
+        player_b_second_extra_secret: None,
         player_a_guess: None,
         player_b_guess: None,
         player_a_round_result: None,

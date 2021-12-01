@@ -12,6 +12,13 @@ pub const CIRCLE: u8 = 0b00000100u8;
 pub const SQUARE: u8 = 0b00000010u8;
 pub const STAR: u8 = 0b00000001u8;
 
+pub const REWARD_NFT: u8 = 1;
+pub const REWARD_POOL: u8 = 2;
+
+pub fn is_bitmask_color(mask: u8) -> bool {
+    mask & 0xf0 > 0
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GameStage {
@@ -35,6 +42,42 @@ impl GameStage {
             1_u8 => Ok(GameStage::Ongoing),
             2_u8 => Ok(GameStage::Finished),
             _ => Err(StdError::generic_err("Invalid game stage value")),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum GameResult {
+    AWon,
+    BWon,
+    BothLose,
+    AJackpotBNft,
+    ANftBJackpot,
+    NoReward,
+}
+
+impl GameResult {
+    pub fn u8_val(&self) -> u8 {
+        match self {
+            GameResult::AWon => 0_u8,
+            GameResult::BWon => 1_u8,
+            GameResult::BothLose => 2_u8,
+            GameResult::AJackpotBNft => 3_u8,
+            GameResult::ANftBJackpot => 4_u8,
+            GameResult::NoReward => 5_u8,
+        }
+    }
+
+    pub fn from_u8(val: u8) -> StdResult<GameResult> {
+        match val {
+            0_u8 => Ok(GameResult::AWon),
+            1_u8 => Ok(GameResult::BWon),
+            2_u8 => Ok(GameResult::BothLose),
+            3_u8 => Ok(GameResult::AJackpotBNft),
+            4_u8 => Ok(GameResult::ANftBJackpot),
+            5_u8 => Ok(GameResult::NoReward),
+            _ => Err(StdError::generic_err("Invalid game result value")),
         }
     }
 }
@@ -139,6 +182,25 @@ impl Color {
             _ => Err(StdError::generic_err("Invalid color value")),
         }
     }
+
+    pub fn to_bitmask(&self) -> u8 {
+        match self {
+            Color::Red => RED,
+            Color::Green => GREEN,
+            Color::Blue => BLUE,
+            Color::Black => BLACK,
+        }
+    }
+
+    pub fn from_bitmask(mask: u8) -> StdResult<Color> {
+        match mask {
+            RED => Ok(Color::Red),
+            GREEN => Ok(Color::Green),
+            BLUE => Ok(Color::Blue),
+            BLACK => Ok(Color::Black),
+            _ => { return Err(StdError::generic_err("Invalid color bitmask")); }
+        }
+    }
 }
 
 #[derive(Debug, Hash, Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -166,6 +228,25 @@ impl Shape {
             1_u8 => Ok(Shape::Square),
             2_u8 => Ok(Shape::Circle),
             3_u8 => Ok(Shape::Star),
+            _ => Err(StdError::generic_err("Invalid shape value")),
+        }
+    }
+
+    pub fn to_bitmask(&self) -> u8 {
+        match self {
+            Shape::Triangle => TRIANGLE,
+            Shape::Square => SQUARE,
+            Shape::Circle => CIRCLE,
+            Shape::Star => STAR,
+        }
+    }
+
+    pub fn from_bitmask(mask: u8) -> StdResult<Shape> {
+        match mask {
+            TRIANGLE => Ok(Shape::Triangle),
+            SQUARE => Ok(Shape::Square),
+            CIRCLE => Ok(Shape::Circle),
+            STAR => Ok(Shape::Star),
             _ => Err(StdError::generic_err("Invalid shape value")),
         }
     }
@@ -262,6 +343,10 @@ impl Hint {
         }
     }
 
+    pub fn is_i_have(&self) -> bool {
+        return self.u8_val() > 7;
+    }
+
     pub fn from_u8(val: u8) -> StdResult<Hint> {
         match val {
             0_u8 => Ok(Hint::NobodyHasRed),
@@ -281,6 +366,27 @@ impl Hint {
             14_u8 => Ok(Hint::IHaveCircle),
             15_u8 => Ok(Hint::IHaveStar),
             _ => Err(StdError::generic_err("Invalid hint value")),
+        }
+    }
+
+    pub fn to_bitmask(&self) -> u8 {
+        match self {
+            Hint::NobodyHasRed => RED,
+            Hint::NobodyHasGreen => GREEN,
+            Hint::NobodyHasBlue => BLUE,
+            Hint::NobodyHasBlack => BLACK,
+            Hint::NobodyHasTriangle => TRIANGLE,
+            Hint::NobodyHasSquare => SQUARE,
+            Hint::NobodyHasCircle => CIRCLE,
+            Hint::NobodyHasStar => STAR,
+            Hint::IHaveRed => RED,
+            Hint::IHaveGreen => GREEN,
+            Hint::IHaveBlue => BLUE,
+            Hint::IHaveBlack => BLACK,
+            Hint::IHaveTriangle => TRIANGLE,
+            Hint::IHaveSquare => SQUARE,
+            Hint::IHaveCircle => CIRCLE,
+            Hint::IHaveStar => STAR,
         }
     }
 }

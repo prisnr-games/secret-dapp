@@ -1,23 +1,25 @@
 use cosmwasm_std::{
     debug_print, 
     to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
-    StdError, StdResult, Storage, CanonicalAddr, Uint128,
+    StdError, StdResult, Storage, CanonicalAddr, Uint128, CosmosMsg, BankMsg,
 };
 use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
 
 use crate::msg::{GameStateResponse, QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
-use crate::random::{supply_more_entropy};
+use crate::random::{get_random_number, supply_more_entropy};
 use crate::state::{
     create_new_game, set_config, get_config, get_current_game, get_game_state, get_number_of_games,
-    GameState, create_new_round, update_game_state, RoundState, Config, set_current_game,
+    GameState, create_new_round, update_game_state, RoundState, Config, set_current_game, get_pool, set_pool,
 };
-use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape};
+use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape, is_bitmask_color, GameResult,
+RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, REWARD_NFT, REWARD_POOL};
 
 /// We make sure that responses from `handle` are padded to a multiple of this size.
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub const DEFAULT_STAKES: Uint128 = Uint128(1000000);
 pub const DEFAULT_TIMEOUT: u64 = 20;
+pub const DENOM: &str = "uscrt";
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -94,7 +96,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         } => try_join(deps, env,),
         HandleMsg::Submit { target, color, shape, .. } => try_submit(deps, env, target, color, shape),
         HandleMsg::Guess { target, color, shape, .. } => try_guess(deps, env, target, color, shape),
-        HandleMsg::Forfeit { .. } => try_forfeit(deps, env),
+        HandleMsg::PickReward { reward, .. } => try_pick_reward(deps, env, reward),
         HandleMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, env, permit_name),
     };
 
@@ -170,6 +172,16 @@ pub fn try_join<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+fn submission_provably_false(
+    hint: Hint,
+    other_player_chip_mask: u8,
+    other_player_first_hint_mask: u8,
+) -> bool {
+    let hint_mask = hint.to_bitmask();
+    return (hint_mask & other_player_chip_mask > 0) ||
+           (hint.is_i_have() && (hint_mask & other_player_first_hint_mask > 0));
+}
+
 pub fn try_submit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -236,12 +248,16 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
     let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
 
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+
     if game_state.round == 0 || game_state.round_state.is_none() {
         return Err(StdError::generic_err("First round has not been initialized"));
     }
 
-    if game_state.finished {
-        return Err(StdError::generic_err("Game is finished, join a new game"));
+    if game_state.round >= 3 {
+        return Err(StdError::generic_err("Finished round with submissions"))
     }
 
     let mut round_state: RoundState = game_state.round_state.unwrap();
@@ -252,8 +268,33 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
                 round_state.player_a_first_submit = new_hint;
+                // check if provably false by b, if so reveal a secret from a
+                //  this happens if b has color or shape in hint, or
+                //  the first hint given in the game contradicts the newly submitted hint
+                let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // calculate secret to give out
+                    let roll = get_random_number(&deps.storage) % 2;
+                    if roll == 0 {
+                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
+                    } else {
+                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
+                    }
+                }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
                 round_state.player_b_first_submit = new_hint;
+                let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // calculate secret to give out
+                    let roll = get_random_number(&deps.storage) % 2;
+                    if roll == 0 {
+                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
+                    } else {
+                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
+                    }
+                }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
@@ -267,8 +308,30 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
                 round_state.player_a_first_submit = new_hint;
+                let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // calculate secret to give out
+                    let roll = get_random_number(&deps.storage) % 2;
+                    if roll == 0 {
+                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
+                    } else {
+                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
+                    }
+                }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
                 round_state.player_b_first_submit = new_hint;
+                let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // calculate secret to give out
+                    let roll = get_random_number(&deps.storage) % 2;
+                    if roll == 0 {
+                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
+                    } else {
+                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
+                    }
+                }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
@@ -282,8 +345,48 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
                 round_state.player_a_second_submit = new_hint;
+                let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // check if a secret was revealed in the first submission, if so do other one
+                    if round_state.player_b_first_extra_secret.is_some() {
+                        let first_extra_secret = round_state.player_b_first_extra_secret.unwrap();
+                        if is_bitmask_color(first_extra_secret) {
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
+                        } else { // first secret was shape
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
+                        }
+                    } else {  // else, calculate secret to give out
+                        let roll = get_random_number(&deps.storage) % 2;
+                        if roll == 0 {
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
+                        } else {
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
+                        }
+                    }
+                }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
                 round_state.player_b_second_submit = new_hint;
+                let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // check if a secret was revealed in the first submission, if so do other one
+                    if round_state.player_a_first_extra_secret.is_some() {
+                        let first_extra_secret = round_state.player_a_first_extra_secret.unwrap();
+                        if is_bitmask_color(first_extra_secret) {
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
+                        } else { // first secret was shape
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
+                        }
+                    } else {  // else, calculate secret to give out
+                        let roll = get_random_number(&deps.storage) % 2;
+                        if roll == 0 {
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
+                        } else {
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
+                        }
+                    }
+                }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
@@ -297,8 +400,48 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
                 round_state.player_a_second_submit = new_hint;
+                let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // check if a secret was revealed in the first submission, if so do other one
+                    if round_state.player_b_first_extra_secret.is_some() {
+                        let first_extra_secret = round_state.player_b_first_extra_secret.unwrap();
+                        if is_bitmask_color(first_extra_secret) {
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
+                        } else { // first secret was shape
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
+                        }
+                    } else {  // else, calculate secret to give out
+                        let roll = get_random_number(&deps.storage) % 2;
+                        if roll == 0 {
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
+                        } else {
+                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
+                        }
+                    }
+                }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
                 round_state.player_b_second_submit = new_hint;
+                let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
+                let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
+                if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
+                    // check if a secret was revealed in the first submission, if so do other one
+                    if round_state.player_a_first_extra_secret.is_some() {
+                        let first_extra_secret = round_state.player_a_first_extra_secret.unwrap();
+                        if is_bitmask_color(first_extra_secret) {
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
+                        } else { // first secret was shape
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
+                        }
+                    } else {  // else, calculate secret to give out
+                        let roll = get_random_number(&deps.storage) % 2;
+                        if roll == 0 {
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
+                        } else {
+                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
+                        }
+                    }
+                }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
@@ -327,6 +470,7 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
     shape: Option<String>,
 ) -> StdResult<HandleResponse> {
     let player = deps.api.canonical_address(&env.message.sender)?;
+    let mut messages: Vec<CosmosMsg> = vec![];
 
     let guess: Guess;
 
@@ -382,12 +526,16 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
 
     let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
 
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+
     if game_state.round == 0 || game_state.round_state.is_none() {
         return Err(StdError::generic_err("First round has not been initialized"));
     }
 
-    if game_state.finished {
-        return Err(StdError::generic_err("Game is finished, join a new game"));
+    if game_state.round >= 3 {
+        return Err(StdError::generic_err("Finished round with guesses"))
     }
 
     let mut round_state: RoundState = game_state.round_state.unwrap();
@@ -480,11 +628,97 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
                 round_state.player_b_round_result = Some(round_result.u8_val());
             }
 
-            game_state.round_state = Some(round_state);
+            game_state.round_state = Some(round_state.clone());
 
             // now only one round
-            // TODO: Is this the last round?? if not, increment and reset
-            game_state.finished = true;
+            // check if it goes to pick reward round
+            let player_a_round_result = RoundResult::from_u8(round_state.player_a_round_result.unwrap())?;
+            let player_b_round_result = RoundResult::from_u8(round_state.player_b_round_result.unwrap())?;
+            if (player_a_round_result == RoundResult::BagCorrect && player_b_round_result == RoundResult::BagCorrect) ||
+               (player_a_round_result == RoundResult::OpponentCorrect && player_b_round_result == RoundResult::OpponentCorrect) ||
+               (player_a_round_result == RoundResult::Abstain && player_b_round_result == RoundResult::Abstain) {
+                // advance to the pick reward round
+                game_state.round = 3;
+            } else {
+                // game does not go to pick reward round, so it is finished
+                game_state.finished = true;
+
+                // check winners and losers
+                if (
+                        player_a_round_result == RoundResult::BagCorrect && (
+                        player_b_round_result == RoundResult::BagWrong || 
+                        player_b_round_result == RoundResult::OpponentWrong || 
+                        player_b_round_result == RoundResult::Abstain)
+                    ) || (
+                        player_a_round_result == RoundResult::OpponentCorrect && (
+                        player_b_round_result == RoundResult::BagCorrect ||
+                        player_b_round_result == RoundResult::BagWrong ||
+                        player_b_round_result == RoundResult::OpponentWrong ||
+                        player_b_round_result == RoundResult::Abstain)
+                    ) || (
+                        player_a_round_result == RoundResult::Abstain && (
+                        player_b_round_result == RoundResult::BagWrong ||
+                        player_b_round_result == RoundResult::OpponentWrong)
+                   ) 
+                {
+                    // Player A WINS
+                    game_state.result = Some(GameResult::AWon.u8_val());
+                    let winnings = game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
+                    messages.push(CosmosMsg::Bank(BankMsg::Send {
+                        from_address: env.contract.address,
+                        to_address: deps.api.human_address(&game_state.player_a)?,
+                        amount: vec![Coin {
+                            denom: DENOM.to_string(),
+                            amount: Uint128(winnings),
+                        }],
+                    }));
+                } else if (
+                        player_b_round_result == RoundResult::BagCorrect && (
+                        player_a_round_result == RoundResult::BagWrong || 
+                        player_a_round_result == RoundResult::OpponentWrong || 
+                        player_a_round_result == RoundResult::Abstain)
+                    ) || (
+                        player_b_round_result == RoundResult::OpponentCorrect && (
+                        player_a_round_result == RoundResult::BagCorrect ||
+                        player_a_round_result == RoundResult::BagWrong ||
+                        player_a_round_result == RoundResult::OpponentWrong ||
+                        player_a_round_result == RoundResult::Abstain)
+                    ) || (
+                        player_b_round_result == RoundResult::Abstain && (
+                        player_a_round_result == RoundResult::BagWrong ||
+                        player_a_round_result == RoundResult::OpponentWrong)
+                    ) 
+                {
+                    // Player B WINS
+                    game_state.result = Some(GameResult::BWon.u8_val());
+                    let winnings = game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
+                    messages.push(CosmosMsg::Bank(BankMsg::Send {
+                        from_address: env.contract.address,
+                        to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                        amount: vec![Coin {
+                            denom: DENOM.to_string(),
+                            amount: Uint128(winnings),
+                        }],
+                    }));
+                } else if (
+                        player_a_round_result == RoundResult::BagWrong && (
+                        player_b_round_result == RoundResult::BagWrong || 
+                        player_b_round_result == RoundResult::OpponentWrong)
+                    ) || (
+                        player_a_round_result == RoundResult::OpponentWrong && (
+                        player_b_round_result == RoundResult::BagWrong ||
+                        player_b_round_result == RoundResult::OpponentWrong)
+                    )
+                {
+                    // Both LOSE
+                    game_state.result = Some(GameResult::BothLose.u8_val());
+
+                    // record the increase in the pool
+                    let mut pool = get_pool(&deps.storage)?;
+                    pool = pool + game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
+                    set_pool(&mut deps.storage, pool)?;
+                }
+            }
 
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
@@ -494,18 +728,135 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
     let game_state_response = get_game_state_response(&deps.storage, player)?;
 
     Ok(HandleResponse {
-        messages: vec![],
+        messages,
         log: vec![],
         data: Some(to_binary(&HandleAnswer::Guess { status: Success, game_state: Some(game_state_response) })?),
     })
 }
 
-pub fn try_forfeit<S: Storage, A: Api, Q: Querier>(
+pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    reward: String,
 ) -> StdResult<HandleResponse> {
     let player = deps.api.canonical_address(&env.message.sender)?;
-    Ok(HandleResponse::default())
+    let mut messages: Vec<CosmosMsg> = vec![];
+
+    if reward != "nft" && reward != "pool" {
+        return Err(StdError::generic_err("Invalid reward selection"));
+    }
+
+    // check if already in an ongoing game
+    let current_game = get_current_game(&deps.storage, &player);
+    if current_game.is_none() {
+        return Err(StdError::generic_err("You cannot pick a reward before joining a game"));
+    }
+    
+    let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+    
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+    
+    if game_state.round == 0 || game_state.round_state.is_none() {
+        return Err(StdError::generic_err("First round has not been initialized"));
+    }
+    
+    if game_state.round < 3 {
+        return Err(StdError::generic_err("Reward round has not started"))
+    }
+
+    // check if other player has picked reward
+    let mut waiting_for_other_player: bool = false;
+    if (player == game_state.player_a && game_state.player_b_reward_pick.is_none()) ||
+       (player == game_state.player_b.clone().unwrap() && game_state.player_a_reward_pick.is_none())
+    {
+        waiting_for_other_player = true;
+    }
+
+    if player == game_state.player_a {
+        if reward == "nft" {
+            game_state.player_a_reward_pick = Some(REWARD_NFT);
+        } else if reward == "pool" {
+            game_state.player_a_reward_pick = Some(REWARD_POOL);
+        }
+    } else if player == game_state.player_b.clone().unwrap() {
+        if reward == "nft" {
+            game_state.player_b_reward_pick = Some(REWARD_NFT);
+        } else if reward == "pool" {
+            game_state.player_b_reward_pick = Some(REWARD_POOL);
+        }
+    }
+
+    if !waiting_for_other_player {
+        // determine reward for both
+        let player_a_reward_pick = game_state.player_a_reward_pick.unwrap();
+        let player_b_reward_pick = game_state.player_b_reward_pick.unwrap();
+        if player_a_reward_pick == player_b_reward_pick {
+            // both picked the same reward
+            // refund wagers
+            game_state.result = Some(GameResult::NoReward.u8_val());
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                from_address: env.contract.address.clone(),
+                to_address: deps.api.human_address(&game_state.player_a)?,
+                amount: vec![Coin {
+                    denom: DENOM.to_string(),
+                    amount: Uint128(game_state.player_a_wager.unwrap_or(0)),
+                }],
+            }));
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                from_address: env.contract.address,
+                to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                amount: vec![Coin {
+                    denom: DENOM.to_string(),
+                    amount: Uint128(game_state.player_b_wager.unwrap_or(0)),
+                }],
+            }));
+        } else {
+            // give out rewards
+            // jackpot is equal to half of the current pool
+            let current_pool = get_pool(&deps.storage)?;
+            let jackpot = current_pool / 2;
+            if player_a_reward_pick == REWARD_POOL {
+                game_state.result = Some(GameResult::AJackpotBNft.u8_val());
+                if jackpot > 0 {
+                    messages.push(CosmosMsg::Bank(BankMsg::Send {
+                        from_address: env.contract.address.clone(),
+                        to_address: deps.api.human_address(&game_state.player_a)?,
+                        amount: vec![Coin {
+                            denom: DENOM.to_string(),
+                            amount: Uint128(jackpot),
+                        }],
+                    }));
+                }
+                // TODO: mint and send NFT to b!
+            } else { // player b picked pool
+                game_state.result = Some(GameResult::ANftBJackpot.u8_val());
+                if jackpot > 0 {
+                    messages.push(CosmosMsg::Bank(BankMsg::Send {
+                        from_address: env.contract.address.clone(),
+                        to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                        amount: vec![Coin {
+                            denom: DENOM.to_string(),
+                            amount: Uint128(jackpot),
+                        }],
+                    }));
+                }
+            }
+            set_pool(&mut deps.storage, current_pool - jackpot)?;
+        }
+        game_state.finished = true;
+    }
+
+    update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+
+    let game_state_response = get_game_state_response(&deps.storage, player)?;
+
+    Ok(HandleResponse {
+        messages,
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::PickReward { status: Success, game_state: Some(game_state_response) })?),
+    })
 }
 
 fn revoke_permit<S: Storage, A: Api, Q: Querier>(
@@ -644,6 +995,20 @@ fn round_result_to_string(round_result: RoundResult) -> String {
     }
 }
 
+fn bitmask_to_string(bitmask: u8) -> String {
+    match bitmask {
+        RED => "red".to_string(),
+        GREEN => "green".to_string(),
+        BLUE => "blue".to_string(),
+        BLACK => "black".to_string(),
+        TRIANGLE => "triangle".to_string(),
+        SQUARE => "square".to_string(),
+        CIRCLE => "circle".to_string(),
+        STAR => "star".to_string(),
+        _ => "".to_string(),
+    }
+}
+
 fn get_game_state_response<S: Storage>(
     storage: &S,
     player: CanonicalAddr,
@@ -654,14 +1019,17 @@ fn get_game_state_response<S: Storage>(
     let mut chip_shape: Option<String> = None;
     let mut hint: Option<String> = None;
     let mut first_submit: Option<String> = None;
-    let mut second_submit: Option<String> = None;
     let mut opponent_first_submit: Option<String> = None;
+    let mut first_extra_secret: Option<String> = None;
+    let mut second_submit: Option<String> = None;
     let mut opponent_second_submit: Option<String> = None;
+    let mut second_extra_secret: Option<String> = None;
     let mut guess: Option<String> = None;
     let mut opponent_guess: Option<String> = None;
     let mut round_result: Option<String> = None;
     let mut opponent_round_result: Option<String> = None;
     let mut finished: Option<bool> = None;
+    let mut result: Option<String> = None;
 
     let current_game = get_current_game(storage, &player);
     if current_game.is_some() {
@@ -670,6 +1038,20 @@ fn get_game_state_response<S: Storage>(
             wager = Some(Uint128(game_state.player_a_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
+            if game_state.result.is_some() {
+                let game_result = GameResult::from_u8(game_state.result.unwrap())?;
+                if game_result == GameResult::AWon {
+                    result = Some("you won wager".to_string());
+                } else if game_result == GameResult::BWon || game_result == GameResult::BothLose {
+                    result = Some("you lost wager".to_string());
+                } else if game_result == GameResult::AJackpotBNft {
+                    result = Some("you won jackpot".to_string());
+                } else if game_result == GameResult::ANftBJackpot {
+                    result = Some("you won nft".to_string());
+                } else if game_result == GameResult::NoReward {
+                    result = Some("you lost reward".to_string());
+                }
+            }
             if game_state.round_state.is_some() {
                 let round_state = game_state.round_state.unwrap();
                 let chip = round_state.player_a_chip;
@@ -705,11 +1087,31 @@ fn get_game_state_response<S: Storage>(
                         opponent_round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_b_round_result.unwrap())?));
                     }
                 }
+                if round_state.player_a_first_extra_secret.is_some() {
+                    first_extra_secret = Some(bitmask_to_string(round_state.player_a_first_extra_secret.unwrap()));
+                }
+                if round_state.player_a_second_extra_secret.is_some() {
+                    second_extra_secret = Some(bitmask_to_string(round_state.player_a_second_extra_secret.unwrap()));
+                }
             }
         } else if player == game_state.player_b.unwrap() {
             wager = Some(Uint128(game_state.player_b_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
+            if game_state.result.is_some() {
+                let game_result = GameResult::from_u8(game_state.result.unwrap())?;
+                if game_result == GameResult::BWon {
+                    result = Some("you won wager".to_string());
+                } else if game_result == GameResult::AWon || game_result == GameResult::BothLose {
+                    result = Some("you lost wager".to_string());
+                } else if game_result == GameResult::AJackpotBNft {
+                    result = Some("you won nft".to_string());
+                } else if game_result == GameResult::ANftBJackpot {
+                    result = Some("you won jackpot".to_string());
+                } else if game_result == GameResult::NoReward {
+                    result = Some("you lost reward".to_string());
+                }
+            }
             if game_state.round_state.is_some() {
                 let round_state = game_state.round_state.unwrap();
                 let chip = round_state.player_b_chip;
@@ -745,6 +1147,12 @@ fn get_game_state_response<S: Storage>(
                         opponent_round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_a_round_result.unwrap())?));
                     }
                 }
+                if round_state.player_b_first_extra_secret.is_some() {
+                    first_extra_secret = Some(bitmask_to_string(round_state.player_b_first_extra_secret.unwrap()));
+                }
+                if round_state.player_b_second_extra_secret.is_some() {
+                    second_extra_secret = Some(bitmask_to_string(round_state.player_b_second_extra_secret.unwrap()));
+                }
             }
         }
     }
@@ -756,14 +1164,17 @@ fn get_game_state_response<S: Storage>(
         chip_shape,
         hint,
         first_submit,
-        second_submit,
         opponent_first_submit,
+        first_extra_secret,
+        second_submit,
         opponent_second_submit,
+        second_extra_secret,
         guess,
         opponent_guess,
         round_result,
         opponent_round_result,
         finished,
+        result,
     })
 }
 
@@ -781,14 +1192,17 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         chip_shape: game_state_response.chip_shape,
         hint: game_state_response.hint,
         first_submit: game_state_response.first_submit,
-        second_submit: game_state_response.second_submit,
         opponent_first_submit: game_state_response.opponent_first_submit,
+        first_extra_secret: game_state_response.first_extra_secret,
+        second_submit: game_state_response.second_submit,
         opponent_second_submit: game_state_response.opponent_second_submit,
+        second_extra_secret: game_state_response.second_extra_secret,
         guess: game_state_response.guess,
         opponent_guess: game_state_response.opponent_guess,
         round_result: game_state_response.round_result,
         opponent_round_result: game_state_response.opponent_round_result,
         finished: game_state_response.finished,
+        result: game_state_response.result,
     };
     to_binary(&response)
 }
@@ -830,7 +1244,7 @@ mod tests {
             stakes: Some(Uint128(1000000)),
             timeout: Some(20),
         };
-        let env = mock_env("creator", &coins(1000, "uscrt"));
+        let env = mock_env("creator", &coins(1000, DENOM));
 
         // we can just call .unwrap() to assert this was a success
         let res = init(&mut deps, env, msg).unwrap();
@@ -845,7 +1259,7 @@ mod tests {
     #[test]
     fn random_color_shape() {
         let mut deps = mock_dependencies(20, &[]);
-        let env = mock_env("creator", &coins(1000, "uscrt"));
+        let env = mock_env("creator", &coins(1000, DENOM));
 
         let msg = InitMsg {
             admin: None,

@@ -58,7 +58,9 @@ pub enum HandleMsg {
         padding: Option<String>,
     },
 
-    Forfeit {
+    PickReward {
+        // one of {"nft", "pool"}
+        reward: String,
         padding: Option<String>,
     },
 
@@ -84,14 +86,17 @@ pub struct GameStateResponse {
     pub chip_shape: Option<String>,
     pub hint: Option<String>,
     pub first_submit: Option<String>,
-    pub second_submit: Option<String>,
     pub opponent_first_submit: Option<String>,
+    pub first_extra_secret: Option<String>,
+    pub second_submit: Option<String>,
     pub opponent_second_submit: Option<String>,
+    pub second_extra_secret: Option<String>,
     pub guess: Option<String>,
     pub opponent_guess: Option<String>,
     pub round_result: Option<String>,
     pub opponent_round_result: Option<String>,
     pub finished: Option<bool>,
+    pub result: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
@@ -112,8 +117,9 @@ pub enum HandleAnswer {
         game_state: Option<GameStateResponse>,
     },
 
-    Forfeit {
+    PickReward {
         status: ResponseStatus,
+        game_state: Option<GameStateResponse>,
     },
 
     // Permit
@@ -151,14 +157,17 @@ pub enum QueryAnswer {
         chip_shape: Option<String>,
         hint: Option<String>,
         first_submit: Option<String>,
-        second_submit: Option<String>,
         opponent_first_submit: Option<String>,
+        first_extra_secret: Option<String>,
+        second_submit: Option<String>,
         opponent_second_submit: Option<String>,
+        second_extra_secret: Option<String>,
         guess: Option<String>,
         opponent_guess: Option<String>,
         round_result: Option<String>,
         opponent_round_result: Option<String>,
         finished: Option<bool>,
+        result: Option<String>,
     },
     PlayerStats {
         info: String // TODO:
