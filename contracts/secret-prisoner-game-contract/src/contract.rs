@@ -65,6 +65,20 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         config,
     )?;
 
+    // is the jackpot pool seeded with funds?
+    if env.message.sent_funds.len() == 0 {
+        set_pool(&mut deps.storage, 0)?;
+    } else if env.message.sent_funds.len() == 1 {
+        let funds = &env.message.sent_funds[0];
+        if funds.denom != DENOM {
+            return Err(StdError::generic_err("Can only seed jackpot pool with scrt"));
+        } else {
+            set_pool(&mut deps.storage, funds.amount.u128())?;
+        }
+    } else {
+        return Err(StdError::generic_err("Can only seed jackpot pool with scrt"));
+    }
+
     debug_print!("Contract was initialized by {}", env.message.sender);
 
     Ok(InitResponse::default())
