@@ -48,7 +48,7 @@ shasum -a 256 contract.wasm
 docker run -it --rm \
  -p 26657:26657 -p 26656:26656 -p 1317:1317 \
  -v $(pwd):/root/code \
- --name secretdev enigmampc/secret-network-sw-dev:v1.2.0-1
+ --name secretdev enigmampc/secret-network-sw-dev:v1.2.2-1
 ```
 
 If you are not running this command from the contract directory, adjust the `$(pwd)` part of the `-v` parameter to mount the contract directory in the container.
@@ -74,14 +74,14 @@ You can confirm that the contract was uploaded by querying the transaction hash:
 secretd q tx {txhash}
 ```
 
-Now we initialize the contract from the test user `a`. The `CODE_ID` might be different if you've uploaded other contracts. Change `INIT` if you do not want the colors and shapes to have equal probability:
+Now we initialize the contract from the test user `a`, and seed the jackpot pool with 10 SCRT. The `CODE_ID` might be different if you've uploaded other contracts. Change `INIT` if you do not want the colors and shapes to have equal probability:
 
 ```sh
 CODE_ID=1
 
 INIT='{"rounds_per_game": 1, "stakes": "1000000", "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25}'
 
-secretd tx compute instantiate $CODE_ID "$INIT" --from a --label "secret-prisoners-0.0.1" -y --keyring-backend test --gas 30000
+secretd tx compute instantiate $CODE_ID "$INIT" --from a --label "secret-prisoners-0.0.1" -y --keyring-backend test --amount 10000000uscrt --gas 30000
 ```
 
 You can query the transaction hash to make sure that the contract was initialized and get the contract address:
@@ -98,7 +98,7 @@ CONTRACT=secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg
 
 ## Command line interaction with the contract
 
-Each 
+Each player can interact with the player by sending `join`, `submit`, `guess`, and `pick_reward` messages to the contract. Only some messages are valid depending on the state of the game.
 
 ### Joining a game
 
@@ -119,25 +119,25 @@ secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend te
 Player `a` submits first hint to player `b`.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","color":"red"}}' --from a --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","color":"red"}}' --from a --keyring-backend test --gas 40000 -y
 ```
 
 Player `b` submits first hint to player `a`.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"submit":{"target":"nobody_has","shape":"triangle"}}' --from b --keyring-backend test --gas 35000 -y
-```
-
-Player `b` submits second hint to player `a`.
-
-```sh
-secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","shape":"star"}}' --from b --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"submit":{"target":"nobody_has","shape":"triangle"}}' --from b --keyring-backend test --gas 40000 -y
 ```
 
 Player `a` submits second hint to player `b`.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"submit":{"target":"nobody_has","color":"black"}}' --from a --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"submit":{"target":"nobody_has","color":"black"}}' --from a --keyring-backend test --gas 40000 -y
+```
+
+Player `b` submits second hint to player `a`.
+
+```sh
+secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","shape":"star"}}' --from b --keyring-backend test --gas 40000 -y
 ```
 
 ### Guessing answer
@@ -145,13 +145,27 @@ secretd tx compute execute $CONTRACT '{"submit":{"target":"nobody_has","color":"
 Player `a` guesses bag is green triangle.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"guess":{"target":"bag","shape":"triangle","color":"green"}}' --from a --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"guess":{"target":"bag","shape":"triangle","color":"green"}}' --from a --keyring-backend test --gas 40000 -y
 ```
 
 Player `b` guesses player `a` has a blue circle.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"guess":{"target":"opponent","shape":"circle","color":"blue"}}' --from b --keyring-backend test --gas 35000 -y
+secretd tx compute execute $CONTRACT '{"guess":{"target":"opponent","shape":"circle","color":"blue"}}' --from b --keyring-backend test --gas 40000 -y
+```
+
+### Picking reward
+
+Player `a` picks jackpot from the pool.
+
+```sh
+secretd tx compute execute $CONTRACT '{"pick_reward": {"reward": "pool"}}' --from a --keyring-backend test --gas 40000 -y
+```
+
+Player `b` picks nft.
+
+```sh
+secretd tx compute execute $CONTRACT '{"pick_reward": {"reward": "nft"}}' --from b --keyring-backend test --gas 40000 -y
 ```
 
 ### Creating a query permit
@@ -196,4 +210,4 @@ To execute a game status query with permit for player a:
 secretd q compute query secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg '{"with_permit":{"query":{"game_state":{}},"permit":{"params":{"permit_name":"Scrt Prisoners","allowed_tokens":["secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"],"chain_id":"secretdev-1","permissions":["owner"]},"signature":'"$(cat ./sig-a.json)"'}}}'
 ```
 
-Repeat the same for player b.
+Repeat the same for player b replacing `--from a` with `--from b` and `sig-a.json` with `sig-b.json`.
