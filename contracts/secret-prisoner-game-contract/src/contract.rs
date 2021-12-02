@@ -940,40 +940,40 @@ fn permit_queries<S: Storage, A: Api, Q: Querier>(
 
 fn color_to_string(color: Color) -> String {
     match color {
-        Color::Red => "red".to_string(),
-        Color::Green => "green".to_string(),
-        Color::Blue => "blue".to_string(),
-        Color::Black => "black".to_string(),
+        Color::Red => "color:red".to_string(),
+        Color::Green => "color:green".to_string(),
+        Color::Blue => "color:blue".to_string(),
+        Color::Black => "color:black".to_string(),
     }
 }
 
 fn shape_to_string(shape: Shape) -> String {
     match shape {
-        Shape::Triangle => "triangle".to_string(),
-        Shape::Square => "square".to_string(),
-        Shape::Circle => "circle".to_string(),
-        Shape::Star => "star".to_string(),
+        Shape::Triangle => "shape:triangle".to_string(),
+        Shape::Square => "shape:square".to_string(),
+        Shape::Circle => "shape:circle".to_string(),
+        Shape::Star => "shape:star".to_string(),
     }
 }
 
 fn hint_to_string(hint: Hint) -> String {
     match hint {
-        Hint::NobodyHasRed => "nobody_has|red".to_string(),
-        Hint::NobodyHasGreen => "nobody_has|green".to_string(),
-        Hint::NobodyHasBlue => "nobody_has|blue".to_string(),
-        Hint::NobodyHasBlack => "nobody_has|black".to_string(),
-        Hint::NobodyHasTriangle => "nobody_has|triangle".to_string(),
-        Hint::NobodyHasSquare => "nobody_has|square".to_string(),
-        Hint::NobodyHasCircle => "nobody_has|circle".to_string(),
-        Hint::NobodyHasStar => "nobody_has|star".to_string(),
-        Hint::IHaveRed => "i_have|red".to_string(),
-        Hint::IHaveGreen => "i_have|green".to_string(),
-        Hint::IHaveBlue => "i_have|blue".to_string(),
-        Hint::IHaveBlack => "i_have|black".to_string(),
-        Hint::IHaveTriangle => "i_have|triangle".to_string(),
-        Hint::IHaveSquare => "i_have|square".to_string(),
-        Hint::IHaveCircle => "i_have|circle".to_string(),
-        Hint::IHaveStar => "i_have|star".to_string(),
+        Hint::NobodyHasRed => "nobody_has|color:red".to_string(),
+        Hint::NobodyHasGreen => "nobody_has|color:green".to_string(),
+        Hint::NobodyHasBlue => "nobody_has|color:blue".to_string(),
+        Hint::NobodyHasBlack => "nobody_has|color:black".to_string(),
+        Hint::NobodyHasTriangle => "nobody_has|shape:triangle".to_string(),
+        Hint::NobodyHasSquare => "nobody_has|shape:square".to_string(),
+        Hint::NobodyHasCircle => "nobody_has|shape:circle".to_string(),
+        Hint::NobodyHasStar => "nobody_has|shape:star".to_string(),
+        Hint::IHaveRed => "i_have|color:red".to_string(),
+        Hint::IHaveGreen => "i_have|color:green".to_string(),
+        Hint::IHaveBlue => "i_have|color:blue".to_string(),
+        Hint::IHaveBlack => "i_have|color:black".to_string(),
+        Hint::IHaveTriangle => "i_have|shape:triangle".to_string(),
+        Hint::IHaveSquare => "i_have|shape:square".to_string(),
+        Hint::IHaveCircle => "i_have|shape:circle".to_string(),
+        Hint::IHaveStar => "i_have|shape:star".to_string(),
     }
 }
 
@@ -1011,14 +1011,14 @@ fn round_result_to_string(round_result: RoundResult) -> String {
 
 fn bitmask_to_string(bitmask: u8) -> String {
     match bitmask {
-        RED => "red".to_string(),
-        GREEN => "green".to_string(),
-        BLUE => "blue".to_string(),
-        BLACK => "black".to_string(),
-        TRIANGLE => "triangle".to_string(),
-        SQUARE => "square".to_string(),
-        CIRCLE => "circle".to_string(),
-        STAR => "star".to_string(),
+        RED => "color:red".to_string(),
+        GREEN => "color:green".to_string(),
+        BLUE => "color:blue".to_string(),
+        BLACK => "color:black".to_string(),
+        TRIANGLE => "shape:triangle".to_string(),
+        SQUARE => "shape:square".to_string(),
+        CIRCLE => "shape:circle".to_string(),
+        STAR => "shape:star".to_string(),
         _ => "".to_string(),
     }
 }
