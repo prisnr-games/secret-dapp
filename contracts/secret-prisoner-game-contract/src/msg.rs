@@ -26,6 +26,8 @@ pub struct InitMsg {
 
     // timeout per turn, in # of blocks
     pub timeout: Option<u64>,
+
+    pub entropy: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

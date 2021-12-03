@@ -79,6 +79,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Can only seed jackpot pool with scrt"));
     }
 
+    let mut fresh_entropy = to_binary(&msg)?.0;
+    fresh_entropy.extend(to_binary(&env)?.0);
+    supply_more_entropy(&mut deps.storage, fresh_entropy.as_slice())?;
+
     debug_print!("Contract was initialized by {}", env.message.sender);
 
     Ok(InitResponse::default())
@@ -1257,6 +1261,7 @@ mod tests {
             star_weight: Some(25),
             stakes: Some(Uint128(1000000)),
             timeout: Some(20),
+            entropy: "random".to_string(),
         };
         let env = mock_env("creator", &coins(1000, DENOM));
 
@@ -1288,6 +1293,7 @@ mod tests {
             star_weight: Some(25),
             stakes: Some(Uint128(1000000)),
             timeout: Some(20),
+            entropy: "random".to_string(),
         };
         let _res = init(&mut deps, env.clone(), msg).unwrap();
 
