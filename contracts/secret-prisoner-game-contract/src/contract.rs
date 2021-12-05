@@ -18,7 +18,7 @@ RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, REWARD_NFT, REWARD_POOL
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub const DEFAULT_STAKES: Uint128 = Uint128(1000000);
-pub const DEFAULT_TIMEOUT: u64 = 20;
+pub const DEFAULT_TIMEOUT: u64 = 50; // 50 Blocks (~ 5 minutes)
 pub const DENOM: &str = "uscrt";
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -200,6 +200,67 @@ fn submission_provably_false(
            (hint.is_i_have() && (hint_mask & other_player_first_hint_mask > 0));
 }
 
+fn pick_extra_secret<S: Storage>(
+    storage: &S,
+    other_player_chip: Chip,
+    other_player_hint: u8,
+    prev_secret: Option<u8>,
+) -> StdResult<Option<u8>> {
+    if prev_secret.is_none() {
+        let roll = get_random_number(storage) % 3;
+        if roll == 0 { 
+            // share opponent's color
+            let color: Color = other_player_chip.color;
+            return Ok(Some(Hint::i_have_from_color(color).u8_val()));
+        } else if roll == 1 {
+            // share opponent's shape
+            let shape: Shape = other_player_chip.shape;
+            return Ok(Some(Hint::i_have_from_shape(shape).u8_val()));
+        } else {
+            // share opponent's hint
+            return Ok(Some(other_player_hint));
+        }
+    } else {
+        let prev_secret = Hint::from_u8(prev_secret.unwrap())?;
+        let roll = get_random_number(storage) % 2;
+        if prev_secret.is_i_have() {
+            if prev_secret.is_color() {
+                // shared opponent's color last time
+                if roll == 0 { 
+                    // share opponents's hint
+                    return Ok(Some(other_player_hint));
+                } else {
+                    // share opponent's shape
+                    let shape: Shape = other_player_chip.shape;
+                    return Ok(Some(Hint::i_have_from_shape(shape).u8_val()));
+
+                }
+            } else {
+                // shared opponent's shape last time
+                if roll == 0 { 
+                    // share opponent's hint
+                    return Ok(Some(other_player_hint));
+                } else {
+                    // share opponent's color
+                    let color: Color = other_player_chip.color;
+                    return Ok(Some(Hint::i_have_from_color(color).u8_val()));
+                }
+            }
+        } else {
+            // gave away other player's hint last time, so give chip color or shape now
+            if roll == 0 { 
+                // share opponent's color
+                let color: Color = other_player_chip.color;
+                return Ok(Some(Hint::i_have_from_color(color).u8_val()));
+            } else {
+                // share opponent's shape
+                let shape: Shape = other_player_chip.shape;
+                return Ok(Some(Hint::i_have_from_shape(shape).u8_val()));
+            }
+        }
+    }
+}
+
 pub fn try_submit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -293,12 +354,12 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
                     // calculate secret to give out
-                    let roll = get_random_number(&deps.storage) % 2;
-                    if roll == 0 {
-                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
-                    } else {
-                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
-                    }
+                    round_state.player_b_first_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_a_chip.to_humanized()?,
+                        round_state.player_a_first_hint, 
+                        None
+                    )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
                 round_state.player_b_first_submit = new_hint;
@@ -306,12 +367,12 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
                     // calculate secret to give out
-                    let roll = get_random_number(&deps.storage) % 2;
-                    if roll == 0 {
-                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
-                    } else {
-                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
-                    }
+                    round_state.player_a_first_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_b_chip.to_humanized()?,
+                        round_state.player_b_first_hint, 
+                        None
+                    )?;
                 }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
@@ -330,12 +391,12 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
                     // calculate secret to give out
-                    let roll = get_random_number(&deps.storage) % 2;
-                    if roll == 0 {
-                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
-                    } else {
-                        round_state.player_b_first_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
-                    }
+                    round_state.player_b_first_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_a_chip.to_humanized()?,
+                        round_state.player_a_first_hint, 
+                        None
+                    )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
                 round_state.player_b_first_submit = new_hint;
@@ -343,12 +404,12 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
                     // calculate secret to give out
-                    let roll = get_random_number(&deps.storage) % 2;
-                    if roll == 0 {
-                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
-                    } else {
-                        round_state.player_a_first_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
-                    }
+                    round_state.player_a_first_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_b_chip.to_humanized()?,
+                        round_state.player_b_first_hint, 
+                        None
+                    )?;
                 }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
@@ -366,44 +427,26 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
-                    // check if a secret was revealed in the first submission, if so do other one
-                    if round_state.player_b_first_extra_secret.is_some() {
-                        let first_extra_secret = round_state.player_b_first_extra_secret.unwrap();
-                        if is_bitmask_color(first_extra_secret) {
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
-                        } else { // first secret was shape
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
-                        }
-                    } else {  // else, calculate secret to give out
-                        let roll = get_random_number(&deps.storage) % 2;
-                        if roll == 0 {
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
-                        } else {
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
-                        }
-                    }
+                    // check if a secret was revealed in the first submission, and pick accordingly
+                    round_state.player_b_second_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_a_chip.to_humanized()?,
+                        round_state.player_a_first_hint, 
+                        round_state.player_b_first_extra_secret,
+                    )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
                 round_state.player_b_second_submit = new_hint;
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
-                    // check if a secret was revealed in the first submission, if so do other one
-                    if round_state.player_a_first_extra_secret.is_some() {
-                        let first_extra_secret = round_state.player_a_first_extra_secret.unwrap();
-                        if is_bitmask_color(first_extra_secret) {
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
-                        } else { // first secret was shape
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
-                        }
-                    } else {  // else, calculate secret to give out
-                        let roll = get_random_number(&deps.storage) % 2;
-                        if roll == 0 {
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
-                        } else {
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
-                        }
-                    }
+                    // check if a secret was revealed in the first submission, and pick accordingly
+                    round_state.player_a_second_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_b_chip.to_humanized()?,
+                        round_state.player_b_first_hint, 
+                        round_state.player_a_first_extra_secret,
+                    )?;
                 }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
@@ -421,44 +464,26 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
-                    // check if a secret was revealed in the first submission, if so do other one
-                    if round_state.player_b_first_extra_secret.is_some() {
-                        let first_extra_secret = round_state.player_b_first_extra_secret.unwrap();
-                        if is_bitmask_color(first_extra_secret) {
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
-                        } else { // first secret was shape
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
-                        }
-                    } else {  // else, calculate secret to give out
-                        let roll = get_random_number(&deps.storage) % 2;
-                        if roll == 0 {
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.color.to_bitmask());
-                        } else {
-                            round_state.player_b_second_extra_secret = Some(round_state.player_a_chip.to_humanized()?.shape.to_bitmask());
-                        }
-                    }
+                    // check if a secret was revealed in the first submission, and pick accordingly
+                    round_state.player_b_second_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_a_chip.to_humanized()?,
+                        round_state.player_a_first_hint, 
+                        round_state.player_b_first_extra_secret,
+                    )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
                 round_state.player_b_second_submit = new_hint;
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
-                    // check if a secret was revealed in the first submission, if so do other one
-                    if round_state.player_a_first_extra_secret.is_some() {
-                        let first_extra_secret = round_state.player_a_first_extra_secret.unwrap();
-                        if is_bitmask_color(first_extra_secret) {
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
-                        } else { // first secret was shape
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
-                        }
-                    } else {  // else, calculate secret to give out
-                        let roll = get_random_number(&deps.storage) % 2;
-                        if roll == 0 {
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.color.to_bitmask());
-                        } else {
-                            round_state.player_a_second_extra_secret = Some(round_state.player_b_chip.to_humanized()?.shape.to_bitmask());
-                        }
-                    }
+                    // check if a secret was revealed in the first submission, and pick accordingly
+                    round_state.player_a_second_extra_secret = pick_extra_secret(
+                        &deps.storage, 
+                        round_state.player_b_chip.to_humanized()?,
+                        round_state.player_b_first_hint, 
+                        round_state.player_a_first_extra_secret,
+                    )?;
                 }
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
@@ -1106,10 +1131,10 @@ fn get_game_state_response<S: Storage>(
                     }
                 }
                 if round_state.player_a_first_extra_secret.is_some() {
-                    first_extra_secret = Some(bitmask_to_string(round_state.player_a_first_extra_secret.unwrap()));
+                    first_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_extra_secret.unwrap())?));
                 }
                 if round_state.player_a_second_extra_secret.is_some() {
-                    second_extra_secret = Some(bitmask_to_string(round_state.player_a_second_extra_secret.unwrap()));
+                    second_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_extra_secret.unwrap())?));
                 }
             }
         } else if player == game_state.player_b.unwrap() {
@@ -1166,10 +1191,10 @@ fn get_game_state_response<S: Storage>(
                     }
                 }
                 if round_state.player_b_first_extra_secret.is_some() {
-                    first_extra_secret = Some(bitmask_to_string(round_state.player_b_first_extra_secret.unwrap()));
+                    first_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_extra_secret.unwrap())?));
                 }
                 if round_state.player_b_second_extra_secret.is_some() {
-                    second_extra_secret = Some(bitmask_to_string(round_state.player_b_second_extra_secret.unwrap()));
+                    second_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_extra_secret.unwrap())?));
                 }
             }
         }

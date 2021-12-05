@@ -349,6 +349,18 @@ impl Hint {
         return self.u8_val() > 7;
     }
 
+    pub fn is_nobody_has(&self) -> bool {
+        return !self.is_i_have();
+    }
+
+    pub fn is_color(&self) -> bool {
+        return self.u8_val() < 4 || (self.u8_val() > 7 && self.u8_val() < 12);
+    }
+
+    pub fn is_shape(&self) -> bool {
+        return !self.is_color();
+    }
+
     pub fn from_u8(val: u8) -> StdResult<Hint> {
         match val {
             0_u8 => Ok(Hint::NobodyHasRed),
@@ -389,6 +401,42 @@ impl Hint {
             Hint::IHaveSquare => SQUARE,
             Hint::IHaveCircle => CIRCLE,
             Hint::IHaveStar => STAR,
+        }
+    }
+
+    pub fn i_have_from_color(color: Color) -> Hint {
+        match color {
+            Color::Red => Hint::IHaveRed,
+            Color::Green => Hint::IHaveGreen,
+            Color::Blue => Hint::IHaveBlue,
+            Color::Black => Hint::IHaveBlack,
+        }
+    }
+
+    pub fn i_have_from_shape(shape: Shape) -> Hint {
+        match shape {
+            Shape::Triangle => Hint::IHaveTriangle,
+            Shape::Square => Hint::IHaveSquare,
+            Shape::Circle => Hint::IHaveCircle,
+            Shape::Star => Hint::IHaveStar,
+        }
+    }
+
+    pub fn nobody_has_from_color(color: Color) -> Hint {
+        match color {
+            Color::Red => Hint::NobodyHasRed,
+            Color::Green => Hint::NobodyHasGreen,
+            Color::Blue => Hint::NobodyHasBlue,
+            Color::Black => Hint::NobodyHasBlack,
+        }
+    }
+
+    pub fn nobody_has_from_shape(shape: Shape) -> Hint {
+        match shape {
+            Shape::Triangle => Hint::NobodyHasTriangle,
+            Shape::Square => Hint::NobodyHasSquare,
+            Shape::Circle => Hint::NobodyHasCircle,
+            Shape::Star => Hint::NobodyHasStar,
         }
     }
 }
