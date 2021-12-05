@@ -79,7 +79,7 @@ Now we initialize the contract from the test user `a`, and seed the jackpot pool
 ```sh
 CODE_ID=1
 
-INIT='{"rounds_per_game": 1, "stakes": "1000000", "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25}'
+INIT='{"rounds_per_game": 1, "stakes": "1000000", "entropy": "secret stuff", "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25}'
 
 secretd tx compute instantiate $CODE_ID "$INIT" --from a --label "secret-prisoners-0.0.1" -y --keyring-backend test --amount 10000000uscrt --gas 30000
 ```
