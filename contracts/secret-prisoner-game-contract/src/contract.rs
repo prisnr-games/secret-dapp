@@ -1,3 +1,4 @@
+use std::cmp::{max};
 use cosmwasm_std::{
     debug_print, 
     to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
@@ -347,6 +348,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
                 round_state.player_a_first_submit = new_hint;
+                round_state.player_a_first_submit_block = Some(env.block.height);
                 // check if provably false by b, if so reveal a secret from a
                 //  this happens if b has color or shape in hint, or
                 //  the first hint given in the game contradicts the newly submitted hint
@@ -363,6 +365,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
                 round_state.player_b_first_submit = new_hint;
+                round_state.player_b_first_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
@@ -387,6 +390,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
                 round_state.player_a_first_submit = new_hint;
+                round_state.player_a_first_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
@@ -400,6 +404,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
                 round_state.player_b_first_submit = new_hint;
+                round_state.player_b_first_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
@@ -424,6 +429,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
                 round_state.player_a_second_submit = new_hint;
+                round_state.player_a_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
@@ -437,6 +443,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
                 round_state.player_b_second_submit = new_hint;
+                round_state.player_b_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
@@ -461,6 +468,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
                 round_state.player_a_second_submit = new_hint;
+                round_state.player_a_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_b_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
@@ -474,6 +482,7 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
                 round_state.player_b_second_submit = new_hint;
+                round_state.player_b_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
                 let other_player_first_hint = Hint::from_u8(round_state.player_a_first_hint)?.to_bitmask();
                 if submission_provably_false(hint, other_player_chip, other_player_first_hint) {
@@ -589,8 +598,10 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_guess.is_none() {
                 round_state.player_a_guess = new_guess;
+                round_state.player_a_guess_block = Some(env.block.height);
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_guess.is_none() {
                 round_state.player_b_guess = new_guess;
+                round_state.player_b_guess_block = Some(env.block.height);
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
@@ -634,8 +645,10 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
 
             if player == game_state.player_a && round_state.player_a_guess.is_none() {
                 round_state.player_a_guess = new_guess;
+                round_state.player_a_guess_block = Some(env.block.height);
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_guess.is_none() {
                 round_state.player_b_guess = new_guess;
+                round_state.player_b_guess_block = Some(env.block.height);
             } else {
                 return Err(StdError::generic_err("Cannot accept a submission from player"));
             }
@@ -818,12 +831,14 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
     }
 
     if player == game_state.player_a {
+        game_state.player_a_reward_pick_block = Some(env.block.height);
         if reward == "nft" {
             game_state.player_a_reward_pick = Some(REWARD_NFT);
         } else if reward == "pool" {
             game_state.player_a_reward_pick = Some(REWARD_POOL);
         }
     } else if player == game_state.player_b.clone().unwrap() {
+        game_state.player_b_reward_pick_block = Some(env.block.height);
         if reward == "nft" {
             game_state.player_b_reward_pick = Some(REWARD_NFT);
         } else if reward == "pool" {
@@ -1061,16 +1076,23 @@ fn get_game_state_response<S: Storage>(
     let mut chip_color: Option<String> = None;
     let mut chip_shape: Option<String> = None;
     let mut hint: Option<String> = None;
+    let mut first_round_start_block: Option<u64> = None;
     let mut first_submit: Option<String> = None;
+    let mut first_submit_block: Option<u64> = None;
     let mut opponent_first_submit: Option<String> = None;
     let mut first_extra_secret: Option<String> = None;
+    let mut second_submit_turn_start_block: Option<u64> = None;
     let mut second_submit: Option<String> = None;
+    let mut second_submit_block: Option<u64> = None;
     let mut opponent_second_submit: Option<String> = None;
     let mut second_extra_secret: Option<String> = None;
+    let mut guess_turn_start_block: Option<u64> = None;
     let mut guess: Option<String> = None;
+    let mut guess_block: Option<u64> = None;
     let mut opponent_guess: Option<String> = None;
     let mut round_result: Option<String> = None;
     let mut opponent_round_result: Option<String> = None;
+    let mut pick_reward_round_start_block: Option<u64> = None;
     let mut finished: Option<bool> = None;
     let mut result: Option<String> = None;
 
@@ -1097,6 +1119,7 @@ fn get_game_state_response<S: Storage>(
             }
             if game_state.round_state.is_some() {
                 let round_state = game_state.round_state.unwrap();
+                first_round_start_block = Some(round_state.round_start_block);
                 let chip = round_state.player_a_chip;
                 chip_color = Some(color_to_string(Color::from_u8(chip.color)?));
                 chip_shape = Some(shape_to_string(Shape::from_u8(chip.shape)?));
@@ -1104,23 +1127,41 @@ fn get_game_state_response<S: Storage>(
                 hint = Some(hint_to_string(Hint::from_u8(initial_hint)?));
                 if round_state.player_a_first_submit.is_some() {
                     first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_submit.unwrap())?));
+                    first_submit_block = round_state.player_a_first_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_b_first_submit.is_some() {
                         opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_submit.unwrap())?));
+                        second_submit_turn_start_block = Some(max(
+                            round_state.player_a_first_submit_block.unwrap(),
+                            round_state.player_b_first_submit_block.unwrap()
+                        ));
                     }
                 }
                 if round_state.player_a_second_submit.is_some() {
                     second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_submit.unwrap())?));
+                    second_submit_block = round_state.player_a_second_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_b_second_submit.is_some() {
                         opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_submit.unwrap())?));
+                        guess_turn_start_block = Some(max(
+                            round_state.player_a_second_submit_block.unwrap(),
+                            round_state.player_b_second_submit_block.unwrap()
+                        ));
                     }
                 }
                 if round_state.player_a_guess.is_some() {
                     guess = Some(guess_to_string(round_state.player_a_guess.unwrap().to_humanized()?));
+                    guess_block = round_state.player_a_guess_block;
                     // player cannot see opponent's guess until made own guess
                     if round_state.player_b_guess.is_some() {
                         opponent_guess = Some(guess_to_string(round_state.player_b_guess.unwrap().to_humanized()?));
+                        if game_state.round == 3 {
+                            // went to pick reward round, send block when started
+                            pick_reward_round_start_block = Some(max(
+                                round_state.player_a_guess_block.unwrap(),
+                                round_state.player_b_guess_block.unwrap()
+                            ));
+                        }
                     }
                 }
                 if round_state.player_a_round_result.is_some() {
@@ -1157,6 +1198,7 @@ fn get_game_state_response<S: Storage>(
             }
             if game_state.round_state.is_some() {
                 let round_state = game_state.round_state.unwrap();
+                first_round_start_block = Some(round_state.round_start_block);
                 let chip = round_state.player_b_chip;
                 chip_color = Some(color_to_string(Color::from_u8(chip.color)?));
                 chip_shape = Some(shape_to_string(Shape::from_u8(chip.shape)?));
@@ -1164,23 +1206,41 @@ fn get_game_state_response<S: Storage>(
                 hint = Some(hint_to_string(Hint::from_u8(initial_hint)?));
                 if round_state.player_b_first_submit.is_some() {
                     first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_submit.unwrap())?));
+                    first_submit_block = round_state.player_b_first_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_a_first_submit.is_some() {
                         opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_submit.unwrap())?));
+                        second_submit_turn_start_block = Some(max(
+                            round_state.player_a_first_submit_block.unwrap(),
+                            round_state.player_b_first_submit_block.unwrap()
+                        ));
                     }
                 }
                 if round_state.player_b_second_submit.is_some() {
                     second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_submit.unwrap())?));
+                    second_submit_block = round_state.player_b_second_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_a_second_submit.is_some() {
                         opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_submit.unwrap())?));
+                        guess_turn_start_block = Some(max(
+                            round_state.player_a_second_submit_block.unwrap(),
+                            round_state.player_b_second_submit_block.unwrap()
+                        ));
                     }
                 }
                 if round_state.player_b_guess.is_some() {
                     guess = Some(guess_to_string(round_state.player_b_guess.unwrap().to_humanized()?));
+                    guess_block = round_state.player_b_guess_block;
                     // player cannot see opponent's guess until made own guess
                     if round_state.player_a_guess.is_some() {
                         opponent_guess = Some(guess_to_string(round_state.player_a_guess.unwrap().to_humanized()?));
+                        if game_state.round == 3 {
+                            // went to pick reward round, send block when started
+                            pick_reward_round_start_block = Some(max(
+                                round_state.player_a_guess_block.unwrap(),
+                                round_state.player_b_guess_block.unwrap()
+                            ));
+                        }
                     }
                 }
                 if round_state.player_b_round_result.is_some() {
@@ -1206,16 +1266,23 @@ fn get_game_state_response<S: Storage>(
         chip_color,
         chip_shape,
         hint,
+        first_round_start_block,
         first_submit,
+        first_submit_block,
         opponent_first_submit,
         first_extra_secret,
+        second_submit_turn_start_block,
         second_submit,
+        second_submit_block,
         opponent_second_submit,
         second_extra_secret,
+        guess_turn_start_block,
         guess,
+        guess_block,
         opponent_guess,
         round_result,
         opponent_round_result,
+        pick_reward_round_start_block,
         finished,
         result,
     })
@@ -1234,16 +1301,23 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         chip_color: game_state_response.chip_color,
         chip_shape: game_state_response.chip_shape,
         hint: game_state_response.hint,
+        first_round_start_block: game_state_response.first_round_start_block,
         first_submit: game_state_response.first_submit,
+        first_submit_block: game_state_response.first_submit_block,
         opponent_first_submit: game_state_response.opponent_first_submit,
         first_extra_secret: game_state_response.first_extra_secret,
+        second_submit_turn_start_block: game_state_response.second_submit_turn_start_block,
         second_submit: game_state_response.second_submit,
+        second_submit_block: game_state_response.second_submit_block,
         opponent_second_submit: game_state_response.opponent_second_submit,
         second_extra_secret: game_state_response.second_extra_secret,
+        guess_turn_start_block: game_state_response.guess_turn_start_block,
         guess: game_state_response.guess,
+        guess_block: game_state_response.guess_block,
         opponent_guess: game_state_response.opponent_guess,
         round_result: game_state_response.round_result,
         opponent_round_result: game_state_response.opponent_round_result,
+        pick_reward_round_start_block: game_state_response.pick_reward_round_start_block,
         finished: game_state_response.finished,
         result: game_state_response.result,
     };

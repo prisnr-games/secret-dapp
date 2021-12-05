@@ -80,21 +80,27 @@ pub struct RoundState {
     pub player_b_first_hint: u8,
 
     pub player_a_first_submit: Option<u8>,
+    pub player_a_first_submit_block: Option<u64>,
     pub player_b_first_submit: Option<u8>,
+    pub player_b_first_submit_block: Option<u64>,
 
     // if first submission is provably false, then this is the secret that is revealed
     pub player_a_first_extra_secret: Option<u8>,
     pub player_b_first_extra_secret: Option<u8>,
 
     pub player_a_second_submit: Option<u8>,
+    pub player_a_second_submit_block: Option<u64>,
     pub player_b_second_submit: Option<u8>,
+    pub player_b_second_submit_block: Option<u64>,
 
     // if second submission is provably false, then this is the secret that is revealed
     pub player_a_second_extra_secret: Option<u8>,
     pub player_b_second_extra_secret: Option<u8>,
 
     pub player_a_guess: Option<StoredGuess>,
+    pub player_a_guess_block: Option<u64>,
     pub player_b_guess: Option<StoredGuess>,
+    pub player_b_guess_block: Option<u64>,
 
     pub player_a_round_result: Option<u8>,
     pub player_b_round_result: Option<u8>,
@@ -108,11 +114,10 @@ pub struct GameState {
     pub player_a_wager: Option<u128>,
     pub player_b_wager: Option<u128>,
 
-    pub player_a_last_move_block: Option<u64>,
-    pub player_b_last_move_block: Option<u64>,
-
     pub player_a_reward_pick: Option<u8>,
+    pub player_a_reward_pick_block: Option<u64>,
     pub player_b_reward_pick: Option<u8>,
+    pub player_b_reward_pick_block: Option<u64>,
 
     // round 0 means second player has not joined, yet
     // round 1 means submitting hints, and guessing
@@ -141,10 +146,10 @@ fn store_new_game<S: Storage>(
         player_b: None,
         player_a_wager: Some(wager),
         player_b_wager: None,
-        player_a_last_move_block: None,
-        player_b_last_move_block: None,
         player_a_reward_pick: None,
+        player_a_reward_pick_block: None,
         player_b_reward_pick: None,
+        player_b_reward_pick_block: None,
         round: 0_u8,
         round_state: None,
         finished: false,
@@ -296,15 +301,21 @@ pub fn create_new_round<S: Storage>(
         player_a_first_hint: player_a_first_hint.u8_val(),
         player_b_first_hint: player_b_first_hint.u8_val(),
         player_a_first_submit: None,
+        player_a_first_submit_block: None,
         player_b_first_submit: None,
+        player_b_first_submit_block: None,
         player_a_first_extra_secret: None,
         player_b_first_extra_secret: None,
         player_a_second_submit: None,
+        player_a_second_submit_block: None,
         player_b_second_submit: None,
+        player_b_second_submit_block: None,
         player_a_second_extra_secret: None,
         player_b_second_extra_secret: None,
         player_a_guess: None,
+        player_a_guess_block: None,
         player_b_guess: None,
+        player_b_guess_block: None,
         player_a_round_result: None,
         player_b_round_result: None,
     })
