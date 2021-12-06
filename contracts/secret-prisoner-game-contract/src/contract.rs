@@ -1185,7 +1185,11 @@ fn get_game_state_response<S: Storage>(
                     first_submit_block = round_state.player_a_first_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_b_first_submit.is_some() {
-                        opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_submit.unwrap())?));
+                        if round_state.player_a_first_extra_secret.is_some() {
+                            first_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_extra_secret.unwrap())?));
+                        } else {
+                            opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_submit.unwrap())?));
+                        }
                         second_submit_turn_start_block = Some(max(
                             round_state.player_a_first_submit_block.unwrap(),
                             round_state.player_b_first_submit_block.unwrap()
@@ -1197,7 +1201,11 @@ fn get_game_state_response<S: Storage>(
                     second_submit_block = round_state.player_a_second_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_b_second_submit.is_some() {
-                        opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_submit.unwrap())?));
+                        if round_state.player_a_second_extra_secret.is_some() {
+                            second_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_extra_secret.unwrap())?));
+                        } else {
+                            opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_submit.unwrap())?));
+                        }
                         guess_turn_start_block = Some(max(
                             round_state.player_a_second_submit_block.unwrap(),
                             round_state.player_b_second_submit_block.unwrap()
@@ -1225,12 +1233,6 @@ fn get_game_state_response<S: Storage>(
                     if round_state.player_b_round_result.is_some() {
                         opponent_round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_b_round_result.unwrap())?));
                     }
-                }
-                if round_state.player_a_first_extra_secret.is_some() {
-                    first_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_extra_secret.unwrap())?));
-                }
-                if round_state.player_a_second_extra_secret.is_some() {
-                    second_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_extra_secret.unwrap())?));
                 }
             }
         } else if player == game_state.player_b.unwrap() {
@@ -1264,7 +1266,11 @@ fn get_game_state_response<S: Storage>(
                     first_submit_block = round_state.player_b_first_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_a_first_submit.is_some() {
-                        opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_submit.unwrap())?));
+                        if round_state.player_b_first_extra_secret.is_some() {
+                            first_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_extra_secret.unwrap())?));
+                        } else {
+                            opponent_first_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_first_submit.unwrap())?));
+                        }
                         second_submit_turn_start_block = Some(max(
                             round_state.player_a_first_submit_block.unwrap(),
                             round_state.player_b_first_submit_block.unwrap()
@@ -1276,7 +1282,11 @@ fn get_game_state_response<S: Storage>(
                     second_submit_block = round_state.player_b_second_submit_block;
                     // player cannot see opponent's submission until made own submission
                     if round_state.player_a_second_submit.is_some() {
-                        opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_submit.unwrap())?));
+                        if round_state.player_b_second_extra_secret.is_some() {
+                            second_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_extra_secret.unwrap())?));
+                        } else {
+                            opponent_second_submit = Some(hint_to_string(Hint::from_u8(round_state.player_a_second_submit.unwrap())?));
+                        }
                         guess_turn_start_block = Some(max(
                             round_state.player_a_second_submit_block.unwrap(),
                             round_state.player_b_second_submit_block.unwrap()
@@ -1304,12 +1314,6 @@ fn get_game_state_response<S: Storage>(
                     if round_state.player_a_round_result.is_some() {
                         opponent_round_result = Some(round_result_to_string(RoundResult::from_u8(round_state.player_a_round_result.unwrap())?));
                     }
-                }
-                if round_state.player_b_first_extra_secret.is_some() {
-                    first_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_b_first_extra_secret.unwrap())?));
-                }
-                if round_state.player_b_second_extra_secret.is_some() {
-                    second_extra_secret = Some(hint_to_string(Hint::from_u8(round_state.player_b_second_extra_secret.unwrap())?));
                 }
             }
         }
