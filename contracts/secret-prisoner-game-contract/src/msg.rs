@@ -27,6 +27,9 @@ pub struct InitMsg {
     // timeout per turn, in # of blocks
     pub timeout: Option<u64>,
 
+    // contract info for the powerup nft minter
+    pub minter: ContractInfo,
+
     pub entropy: String,
 }
 

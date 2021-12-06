@@ -3,14 +3,16 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
 use cosmwasm_std::{
-    CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, 
+    CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, Api,
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
 use crate::types::{Color, RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, Shape, Chip, RoundStage, Hint, StoredChip, StoredGuess};
 use crate::random::{get_random_color, get_random_shape, get_random_number};
+use crate::msg::{ContractInfo};
 
 pub static CONFIG_KEY: &[u8] = b"config";
+pub static MINTER_KEY: &[u8] = b"minter";
 pub static POOL_KEY: &[u8] = b"pool";
 pub static GAME_PREFIX: &[u8] = b"game";
 pub static PLAYER_PREFIX: &[u8] = b"player";
@@ -18,7 +20,7 @@ pub static CURRENT_GAME_PREFIX: &[u8] = b"current-game";
 pub static WON_PREFIX: &[u8] = b"won";
 pub static LOST_PREFIX: &[u8] = b"lost";
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub admin: CanonicalAddr,
     pub contract_address: CanonicalAddr,
@@ -32,6 +34,8 @@ pub struct Config {
     pub star_weight: u16,
     pub stakes: u128,
     pub timeout: u64,
+    // viewing key for minter contract
+    pub viewing_key: String,
 }
 
 pub fn set_config<S: Storage>(
@@ -43,6 +47,44 @@ pub fn set_config<S: Storage>(
 
 pub fn get_config<S: ReadonlyStorage>(storage: &S) -> StdResult<Config> {
     get_bin_data(storage, CONFIG_KEY)
+}
+
+/// code hash and address of a contract
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct StoreContractInfo {
+    /// contract's code hash string
+    pub code_hash: String,
+    /// contract's address
+    pub address: CanonicalAddr,
+}
+
+impl StoreContractInfo {
+    /// Returns StdResult<ContractInfo> from converting a StoreContractInfo to a displayable
+    /// ContractInfo
+    ///
+    /// # Arguments
+    ///
+    /// * `api` - a reference to the Api used to convert human and canonical addresses
+    pub fn to_humanized<A: Api>(&self, api: &A) -> StdResult<ContractInfo> {
+        let info = ContractInfo {
+            address: api.human_address(&self.address)?,
+            code_hash: self.code_hash.clone(),
+        };
+        Ok(info)
+    }
+}
+
+pub fn set_minter<S: Storage>(
+    storage: &mut S,
+    minter: StoreContractInfo,
+) -> StdResult<()> {
+    set_bin_data(storage, MINTER_KEY, &minter)
+}
+
+pub fn get_minter<S: ReadonlyStorage>(
+    storage: &S,
+) -> StdResult<StoreContractInfo> {
+    get_bin_data(storage, MINTER_KEY)
 }
 
 ///

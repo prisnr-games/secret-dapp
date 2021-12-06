@@ -4,13 +4,20 @@ use cosmwasm_std::{
     to_binary, Api, Binary, Coin, Env, Extern, HandleResponse, HumanAddr, InitResponse, Querier,
     StdError, StdResult, Storage, CanonicalAddr, Uint128, CosmosMsg, BankMsg,
 };
-use secret_toolkit::permit::{validate, Permission, Permit, RevokedPermits};
+use secret_toolkit::{
+    permit::{validate, Permission, Permit, RevokedPermits},
+    snip721::{
+        mint_nft_msg, Metadata, set_viewing_key_msg, register_receive_nft_msg, set_minters_msg, private_metadata_query,
+        ViewerInfo,
+    },
+};
 
-use crate::msg::{GameStateResponse, QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
-use crate::random::{get_random_number, supply_more_entropy};
+use crate::msg::{ContractInfo, GameStateResponse, QueryWithPermit, HandleAnswer, HandleMsg, InitMsg, QueryAnswer, QueryMsg, space_pad, ResponseStatus::Success};
+use crate::random::{get_random_number, supply_more_entropy, sha_256};
 use crate::state::{
     create_new_game, set_config, get_config, get_current_game, get_game_state, get_number_of_games,
     GameState, create_new_round, update_game_state, RoundState, Config, set_current_game, get_pool, set_pool,
+    StoreContractInfo, set_minter, get_minter,
 };
 use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape, is_bitmask_color, GameResult,
 RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, REWARD_NFT, REWARD_POOL};
@@ -27,6 +34,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
+    let prng_seed: Vec<u8> = sha_256(base64::encode(msg.entropy.clone()).as_bytes()).to_vec();
+    let viewing_key = base64::encode(&prng_seed);
+
     let red_weight = msg.red_weight.unwrap_or(25);
     let green_weight = msg.green_weight.unwrap_or(25);
     let blue_weight = msg.blue_weight.unwrap_or(25);
@@ -59,12 +69,20 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         star_weight,
         stakes,
         timeout,
+        viewing_key: viewing_key.clone(),
     };
 
     set_config(
         &mut deps.storage, 
         config,
     )?;
+
+    let minter = msg.minter.clone();
+    let minter = StoreContractInfo {
+        address: deps.api.canonical_address(&minter.address)?,
+        code_hash: minter.code_hash,
+    };
+    set_minter(&mut deps.storage, minter)?;
 
     // is the jackpot pool seeded with funds?
     if env.message.sent_funds.len() == 0 {
@@ -86,7 +104,33 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     debug_print!("Contract was initialized by {}", env.message.sender);
 
-    Ok(InitResponse::default())
+    Ok(InitResponse {
+        messages: vec![
+            register_receive_nft_msg(
+                env.contract_code_hash,
+                Some(true),
+                None,
+                256,
+                msg.minter.code_hash.clone(),
+                msg.minter.address.clone(),
+            )?,
+            set_viewing_key_msg(
+                viewing_key,
+                None,
+                256,
+                msg.minter.code_hash.clone(),
+                msg.minter.address.clone(),
+            )?,
+            //set_minters_msg(
+            //    vec![env.contract.address],
+            //    None,
+            //    256,
+            //    msg.minter.code_hash,
+            //    msg.minter.address,
+            //)?,
+        ],
+        log: vec![],
+    })
 }
 
 fn pad_response(response: StdResult<HandleResponse>) -> StdResult<HandleResponse> {
@@ -893,6 +937,16 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
             }));
         } else {
             // give out rewards
+
+            // prepare the nft
+            let public_metadata: Option<Metadata> = None;
+            let private_metadata: Option<Metadata> = Some(Metadata{
+                name: Some("lie detector".to_string()),
+                description: None,
+                image: None,
+            });
+            let minter: ContractInfo = get_minter(&deps.storage)?.to_humanized(&deps.api)?;
+
             // jackpot is equal to half of the current pool
             let current_pool = get_pool(&deps.storage)?;
             let jackpot = current_pool / 2;
@@ -908,7 +962,21 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
                         }],
                     }));
                 }
-                // TODO: mint and send NFT to b!
+
+                // mint and send NFT to player b
+                let nft_owner: Option<HumanAddr> = Some(deps.api.human_address(&game_state.player_b.clone().unwrap())?);
+                let cosmos_msg = mint_nft_msg(
+                    None, 
+                    nft_owner, 
+                    public_metadata, 
+                    private_metadata, 
+                    None, 
+                    None, 
+                    256, 
+                    minter.code_hash, 
+                    minter.address,
+                )?;
+                messages.push(cosmos_msg);
             } else { // player b picked pool
                 game_state.result = Some(GameResult::ANftBJackpot.u8_val());
                 if jackpot > 0 {
@@ -921,6 +989,20 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
                         }],
                     }));
                 }
+                // mint and send NFT to player a
+                let nft_owner: Option<HumanAddr> = Some(deps.api.human_address(&game_state.player_a)?);
+                let cosmos_msg = mint_nft_msg(
+                    None, 
+                    nft_owner, 
+                    public_metadata, 
+                    private_metadata, 
+                    None, 
+                    None, 
+                    256, 
+                    minter.code_hash, 
+                    minter.address,
+                )?;
+                messages.push(cosmos_msg);
             }
             set_pool(&mut deps.storage, current_pool - jackpot)?;
         }
@@ -959,12 +1041,35 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
     }
         
     let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
-        
+
     if game_state.finished {
         return Err(StdError::generic_err("Game is finished, join a new game"));
     }
 
     let mut messages: Vec<CosmosMsg> = vec![];
+
+    let config = get_config(&deps.storage)?;
+    let viewer = Some(ViewerInfo {
+        address: env.contract.address,
+        viewing_key: config.viewing_key.clone(),
+    });
+
+    let minter = get_minter(&deps.storage)?.to_humanized(&deps.api)?;
+    let priv_meta = private_metadata_query(
+        &deps.querier,
+        token_ids[0].clone(),
+        viewer,
+        256,
+        minter.code_hash,
+        minter.address,
+    )?;
+    if priv_meta.name.is_some() {
+        let powerup = priv_meta.name.unwrap();
+        // TODO: Do something with NFT!
+    } else {
+        return Err(StdError::generic_err("Invalid private metadata for powerup nft"));
+    }
+
     Ok(HandleResponse {
         messages,
         log: vec![],
@@ -1393,7 +1498,7 @@ fn query_player_stats<S: Storage, A: Api, Q: Querier>(
     to_binary(&response)
 }
 
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1490,6 +1595,7 @@ mod tests {
         let color = get_random_color(&deps.storage, &mut color_options, true);
         println!("{:?}", color);
     }
+    */
 /*
     #[test]
     fn increment() {
@@ -1538,4 +1644,6 @@ mod tests {
         assert_eq!(5, value.count);
     }
 */
+/*
 }
+*/

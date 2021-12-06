@@ -53,7 +53,7 @@ docker run -it --rm \
 
 If you are not running this command from the `contracts` directory, adjust the `$(pwd)` part of the `-v` parameter to mount the contract directory in the container.
 
-### Uploading contract to local dev chain
+## Uploading contracts to local dev chain
 
 In a new terminal window connect to the testnet container:
 
@@ -61,11 +61,37 @@ In a new terminal window connect to the testnet container:
 docker exec -it secretdev /bin/bash
 ```
 
+### Setting up Minter contract
+
+Now let's create the minter contract for secret prisoner powerup nfts.
+
+```sh
+cd code/secret-prisoner-minter
+secretd tx compute store contract.wasm.gz --from a --gas 4300000 -y --keyring-backend test
+```
+
+We initialize the minter contract
+
+```sh
+MINTER_CODE_ID=1
+
+MINTER_INIT='{"name": "secret-prisoner-powerup-nft-minter", "symbol": "sprispowrup", "entropy": "secret stuff for minter"}'
+
+secretd tx compute instantiate $MINTER_CODE_ID "$MINTER_INIT" --from a --label "secret-prisoners-minter-0.0.1" -y --keyring-backend test --gas 35000
+```
+
+Query the transaction hash to get the minter contract's address. On the local dev network the second uploaded contract should have the following address:
+
+```sh
+MINTER_CONTRACT=secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg
+MINTER_CODE_HASH=36d94d2066b903ede9716f77f2fe99274aaa2c434feb424302dbb8aef9f34721
+```
+
 To load the contract in the container shell enter:
 
 ```sh
-cd code/secret-prisoner-game-contract
-secretd tx compute store contract.wasm.gz --from a --gas 2500000 -y --keyring-backend test
+cd ../secret-prisoner-game-contract
+secretd tx compute store contract.wasm.gz --from a --gas 3000000 -y --keyring-backend test
 ```
 
 You can confirm that the contract was uploaded by querying the transaction hash:
@@ -77,11 +103,11 @@ secretd q tx {txhash}
 Now we initialize the contract from the test user `a`, and seed the jackpot pool with 10 SCRT. The `CODE_ID` might be different if you've uploaded other contracts. Change `INIT` if you do not want the colors and shapes to have equal probability:
 
 ```sh
-CODE_ID=1
+CODE_ID=2
 
-INIT='{"rounds_per_game": 1, "stakes": "1000000", "entropy": "secret stuff", "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25}'
+INIT='{"rounds_per_game": 1, "stakes": "1000000", "entropy": "secret stuff", "red_weight": 25, "green_weight": 25, "blue_weight": 25, "black_weight": 25, "triangle_weight": 25, "square_weight": 25, "circle_weight": 25, "star_weight": 25, "minter": {"code_hash":"36d94d2066b903ede9716f77f2fe99274aaa2c434feb424302dbb8aef9f34721", "address":"secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"}}'
 
-secretd tx compute instantiate $CODE_ID "$INIT" --from a --label "secret-prisoners-0.0.1" -y --keyring-backend test --amount 10000000uscrt --gas 30000
+secretd tx compute instantiate $CODE_ID "$INIT" --from a --label "secret-prisoners-0.0.1" -y --keyring-backend test --amount 10000000uscrt --gas 70000
 ```
 
 You can query the transaction hash to make sure that the contract was initialized and get the contract address:
@@ -90,47 +116,17 @@ You can query the transaction hash to make sure that the contract was initialize
 secretd q tx {txhash}
 ```
 
-On the local dev network the first uploaded contract should have the following address:
+On the local dev network the second uploaded contract should have the following address:
 
 ```sh
-CONTRACT=secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg
+CONTRACT=secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf
+CODE_HASH=4e1962b82a2bac958c1bb92fe7283cea94dce967d74d267eaa2ce3b43b9b43cf
 ```
 
-## Setting up Minter contract
-
-Now let's create the minter contract for secret prisoner powerup nfts.
+### Set game contract as a minter
 
 ```sh
-cd ../secret-prisoner-minter
-secretd tx compute store contract.wasm.gz --from a --gas 3000000 -y --keyring-backend test
-```
-
-We initialize the minter contract, and 
-
-```sh
-MINTER_CODE_ID=2
-
-MINTER_INIT='{"name": "secret-prisoner-powerup-nft-minter", "symbol": "sprispowrup", "entropy": "secret stuff for minter"}'
-
-secretd tx compute instantiate $MINTER_CODE_ID "$MINTER_INIT" --from a --label "secret-prisoners-minter-0.0.1" -y --keyring-backend test --gas 30000
-```
-
-Query the transaction hash to get the minter contract's address:
-
-```sh
-MINTER_CONTRACT=secret....
-```
-
-Then register the secret prisoner game contract as a minter.
-
-```sh
-secretd tx compute execute $MINTER_CONTRACT '{"set_minters": {"minters": ["secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"]}}' --from a --keyring-backend test --gas 50000 -y
-```
-
-And also register the secret prisoner game contract as a receiever for the nfts.
-
-```sh
-secretd tx compute execute $MINTER_CONTRACT '{"register_receive_nft": {"code_hash": "GAME_CONTRACT_CODE_HASH", "also_implements_batch_receive_nft": true}}' --from a --keyring-backend test --gas 50000 -y
+secretd tx compute execute $MINTER_CONTRACT '{"set_minters": {"minters": ["secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf"]}}' --from a --keyring-backend test --gas 28000 -y
 ```
 
 ## Command line interaction with the contract
