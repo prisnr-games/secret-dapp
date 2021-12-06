@@ -116,6 +116,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Submit { target, color, shape, .. } => try_submit(deps, env, target, color, shape),
         HandleMsg::Guess { target, color, shape, .. } => try_guess(deps, env, target, color, shape),
         HandleMsg::PickReward { reward, .. } => try_pick_reward(deps, env, reward),
+        HandleMsg::BatchReceiveNft { sender, from, token_ids, msg } => try_receive_nft(deps, env, sender, from, token_ids, msg),
         HandleMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, env, permit_name),
     };
 
@@ -428,6 +429,11 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
+                if (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
+                   (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                {
+                    return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
                 round_state.player_a_second_submit = new_hint;
                 round_state.player_a_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
@@ -442,6 +448,11 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                     )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
+                if (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
+                   (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                {
+                    return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
                 round_state.player_b_second_submit = new_hint;
                 round_state.player_b_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
@@ -467,6 +478,11 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
+                if (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
+                   (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                {
+                    return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
                 round_state.player_a_second_submit = new_hint;
                 round_state.player_a_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_b_chip.to_humanized()?.to_bitmask();
@@ -481,6 +497,11 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                     )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
+                if (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
+                   (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                {
+                    return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
                 round_state.player_b_second_submit = new_hint;
                 round_state.player_b_second_submit_block = Some(env.block.height);
                 let other_player_chip = round_state.player_a_chip.to_humanized()?.to_bitmask();
@@ -914,6 +935,40 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
         messages,
         log: vec![],
         data: Some(to_binary(&HandleAnswer::PickReward { status: Success, game_state: Some(game_state_response) })?),
+    })
+}
+
+pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    _sender: HumanAddr,
+    from: HumanAddr,
+    token_ids: Vec<String>,
+    _msg: Option<String>,
+) -> StdResult<HandleResponse> {
+    if token_ids.len() != 1 {
+        return Err(StdError::generic_err("Can only send one powerup nft at a time"));
+    }
+
+    let player = deps.api.canonical_address(&from)?;
+
+    // check if already in an ongoing game
+    let current_game = get_current_game(&deps.storage, &player);
+    if current_game.is_none() {
+        return Err(StdError::generic_err("You cannot send a powerup nft before joining a game"));
+    }
+        
+    let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+        
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+
+    let mut messages: Vec<CosmosMsg> = vec![];
+    Ok(HandleResponse {
+        messages,
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::BatchReceiveNft { status: Success, game_state: None })?),
     })
 }
 

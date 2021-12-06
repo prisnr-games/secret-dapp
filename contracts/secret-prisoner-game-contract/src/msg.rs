@@ -66,6 +66,13 @@ pub enum HandleMsg {
         padding: Option<String>,
     },
 
+    BatchReceiveNft {
+        sender: HumanAddr,
+        from: HumanAddr,
+        token_ids: Vec<String>,
+        msg: Option<String>,
+    },
+
     // Permit
     RevokePermit {
         permit_name: String,
@@ -131,6 +138,11 @@ pub enum HandleAnswer {
         game_state: Option<GameStateResponse>,
     },
 
+    BatchReceiveNft {
+        status: ResponseStatus,
+        game_state: Option<GameStateResponse>,
+    },
+
     // Permit
     RevokePermit {
         status: ResponseStatus,
@@ -188,6 +200,15 @@ pub enum QueryAnswer {
     PlayerStats {
         info: String // TODO:
     },
+}
+
+/// code hash and address of a contract
+#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Debug)]
+pub struct ContractInfo {
+    /// contract's code hash string
+    pub code_hash: String,
+    /// contract's address
+    pub address: HumanAddr,
 }
 
 // Take a Vec<u8> and pad it up to a multiple of `block_size`, using spaces at the end.

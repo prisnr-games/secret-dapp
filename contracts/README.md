@@ -51,7 +51,7 @@ docker run -it --rm \
  --name secretdev enigmampc/secret-network-sw-dev:v1.2.2-1
 ```
 
-If you are not running this command from the contract directory, adjust the `$(pwd)` part of the `-v` parameter to mount the contract directory in the container.
+If you are not running this command from the `contracts` directory, adjust the `$(pwd)` part of the `-v` parameter to mount the contract directory in the container.
 
 ### Uploading contract to local dev chain
 
@@ -64,7 +64,7 @@ docker exec -it secretdev /bin/bash
 To load the contract in the container shell enter:
 
 ```sh
-cd code/
+cd code/secret-prisoner-game-contract
 secretd tx compute store contract.wasm.gz --from a --gas 2500000 -y --keyring-backend test
 ```
 
@@ -94,6 +94,43 @@ On the local dev network the first uploaded contract should have the following a
 
 ```sh
 CONTRACT=secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg
+```
+
+## Setting up Minter contract
+
+Now let's create the minter contract for secret prisoner powerup nfts.
+
+```sh
+cd ../secret-prisoner-minter
+secretd tx compute store contract.wasm.gz --from a --gas 3000000 -y --keyring-backend test
+```
+
+We initialize the minter contract, and 
+
+```sh
+MINTER_CODE_ID=2
+
+MINTER_INIT='{"name": "secret-prisoner-powerup-nft-minter", "symbol": "sprispowrup", "entropy": "secret stuff for minter"}'
+
+secretd tx compute instantiate $MINTER_CODE_ID "$MINTER_INIT" --from a --label "secret-prisoners-minter-0.0.1" -y --keyring-backend test --gas 30000
+```
+
+Query the transaction hash to get the minter contract's address:
+
+```sh
+MINTER_CONTRACT=secret....
+```
+
+Then register the secret prisoner game contract as a minter.
+
+```sh
+secretd tx compute execute $MINTER_CONTRACT '{"set_minters": {"minters": ["secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"]}}' --from a --keyring-backend test --gas 50000 -y
+```
+
+And also register the secret prisoner game contract as a receiever for the nfts.
+
+```sh
+secretd tx compute execute $MINTER_CONTRACT '{"register_receive_nft": {"code_hash": "GAME_CONTRACT_CODE_HASH", "also_implements_batch_receive_nft": true}}' --from a --keyring-backend test --gas 50000 -y
 ```
 
 ## Command line interaction with the contract
