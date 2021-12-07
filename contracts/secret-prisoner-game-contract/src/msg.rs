@@ -129,6 +129,7 @@ pub struct GameStateResponse {
     pub pick_reward_round_start_block: Option<u64>,
     pub finished: Option<bool>,
     pub result: Option<String>,
+    pub pick: Option<String>,
     pub jackpot_reward: Option<Uint128>,
     pub nft_token_id: Option<String>,
 }
@@ -224,6 +225,7 @@ pub enum QueryAnswer {
         pick_reward_round_start_block: Option<u64>,
         finished: Option<bool>,
         result: Option<String>,
+        pick: Option<String>,
         jackpot_reward: Option<Uint128>,
         nft_token_id: Option<String>,
     },

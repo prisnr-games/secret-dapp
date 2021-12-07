@@ -1657,6 +1657,14 @@ fn round_result_to_string(round_result: RoundResult) -> String {
     }
 }
 
+fn pick_to_string(pick: u8) -> String {
+    match pick {
+        REWARD_POOL => "jackpot".to_string(),
+        REWARD_NFT => "nft".to_string(),
+        _ => "".to_string(),
+    }
+}
+
 /*
 fn bitmask_to_string(bitmask: u8) -> String {
     match bitmask {
@@ -1701,6 +1709,7 @@ fn get_game_state_response<S: Storage>(
     let mut pick_reward_round_start_block: Option<u64> = None;
     let mut finished: Option<bool> = None;
     let mut result: Option<String> = None;
+    let mut pick: Option<String> = None;
     let mut jackpot_reward: Option<Uint128> = None;
     let mut nft_token_id: Option<String> = None;
 
@@ -1711,6 +1720,9 @@ fn get_game_state_response<S: Storage>(
             wager = Some(Uint128(game_state.player_a_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
+            if game_state.player_a_reward_pick.is_some() {
+                pick = Some(pick_to_string(game_state.player_a_reward_pick.unwrap()));
+            }
             if game_state.result.is_some() {
                 let game_result = GameResult::from_u8(game_state.result.unwrap())?;
                 if game_result == GameResult::AWon {
@@ -1794,6 +1806,9 @@ fn get_game_state_response<S: Storage>(
             wager = Some(Uint128(game_state.player_b_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
+            if game_state.player_b_reward_pick.is_some() {
+                pick = Some(pick_to_string(game_state.player_b_reward_pick.unwrap()));
+            }
             if game_state.result.is_some() {
                 let game_result = GameResult::from_u8(game_state.result.unwrap())?;
                 if game_result == GameResult::BWon {
@@ -1901,6 +1916,7 @@ fn get_game_state_response<S: Storage>(
         pick_reward_round_start_block,
         finished,
         result,
+        pick,
         jackpot_reward,
         nft_token_id,
     })
@@ -1938,6 +1954,7 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         pick_reward_round_start_block: game_state_response.pick_reward_round_start_block,
         finished: game_state_response.finished,
         result: game_state_response.result,
+        pick: game_state_response.pick,
         jackpot_reward: game_state_response.jackpot_reward,
         nft_token_id: game_state_response.nft_token_id,
     };
