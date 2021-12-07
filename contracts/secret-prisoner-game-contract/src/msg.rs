@@ -43,6 +43,7 @@ pub enum HandleMsg {
         padding: Option<String>, 
     },
 
+    // Submit an assertion for the opponent
     Submit {
         // one of {"nobody_has", "bag_not"}
         target: String,
@@ -53,6 +54,7 @@ pub enum HandleMsg {
         padding: Option<String>, 
     },
 
+    // Guess the arbiter's or the opponent's chip
     Guess {
         // one of {"bag", "opponent", "abstain"}
         target: String,
@@ -63,9 +65,15 @@ pub enum HandleMsg {
         padding: Option<String>,
     },
 
+    // Pick a reward if round 3 has been entered
     PickReward {
         // one of {"nft", "pool"}
         reward: String,
+        padding: Option<String>,
+    },
+
+    // Withdraw from a game if no opponent has joined
+    Withdraw {
         padding: Option<String>,
     },
 
@@ -145,6 +153,10 @@ pub enum HandleAnswer {
     BatchReceiveNft {
         status: ResponseStatus,
         game_state: Option<GameStateResponse>,
+    },
+
+    Withdraw {
+        status: ResponseStatus,
     },
 
     // Permit

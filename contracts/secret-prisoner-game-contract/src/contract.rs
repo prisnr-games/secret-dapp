@@ -26,7 +26,7 @@ RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, REWARD_NFT, REWARD_POOL
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub const DEFAULT_STAKES: Uint128 = Uint128(1000000);
-pub const DEFAULT_TIMEOUT: u64 = 50; // 50 Blocks (~ 5 minutes)
+pub const DEFAULT_TIMEOUT: u64 = 100; // 100 Blocks (~ 10 minutes)
 pub const DENOM: &str = "uscrt";
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -160,6 +160,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Submit { target, color, shape, .. } => try_submit(deps, env, target, color, shape),
         HandleMsg::Guess { target, color, shape, .. } => try_guess(deps, env, target, color, shape),
         HandleMsg::PickReward { reward, .. } => try_pick_reward(deps, env, reward),
+        HandleMsg::Withdraw { .. } => try_withdraw(deps, env),
         HandleMsg::BatchReceiveNft { sender, from, token_ids, msg } => try_receive_nft(deps, env, sender, from, token_ids, msg),
         HandleMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, env, permit_name),
     };
@@ -1057,6 +1058,51 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
         messages,
         log: vec![],
         data: Some(to_binary(&HandleAnswer::PickReward { status: Success, token_id, game_state: Some(game_state_response) })?),
+    })
+}
+
+pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> StdResult<HandleResponse> {
+    let player = deps.api.canonical_address(&env.message.sender)?;
+    let mut messages: Vec<CosmosMsg> = vec![];
+
+    // check if already in an ongoing game
+    let current_game = get_current_game(&deps.storage, &player);
+    if current_game.is_none() {
+        return Err(StdError::generic_err("You cannot pick a reward before joining a game"));
+    }
+        
+    let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+    
+    if game_state.round > 0 || game_state.round_state.is_some() {
+        return Err(StdError::generic_err("Cannot withdraw once another player has joined game"));
+    }
+    
+    game_state.finished = true;
+    update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+
+    if player == game_state.player_a && game_state.player_a_wager.unwrap_or(0) > 0 {
+        // refund wager
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address.clone(),
+            to_address: deps.api.human_address(&player)?,
+            amount: vec![Coin {
+                denom: DENOM.to_string(),
+                amount: Uint128(game_state.player_a_wager.unwrap_or(0)),
+            }],
+        }));
+    }
+
+    Ok(HandleResponse {
+        messages,
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Withdraw { status: Success, })?),
     })
 }
 
