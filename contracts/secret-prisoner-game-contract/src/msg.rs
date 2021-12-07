@@ -129,6 +129,8 @@ pub struct GameStateResponse {
     pub pick_reward_round_start_block: Option<u64>,
     pub finished: Option<bool>,
     pub result: Option<String>,
+    pub jackpot_reward: Option<Uint128>,
+    pub nft_token_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
@@ -151,7 +153,6 @@ pub enum HandleAnswer {
 
     PickReward {
         status: ResponseStatus,
-        token_id: Option<String>,
         game_state: Option<GameStateResponse>,
     },
 
@@ -223,6 +224,8 @@ pub enum QueryAnswer {
         pick_reward_round_start_block: Option<u64>,
         finished: Option<bool>,
         result: Option<String>,
+        jackpot_reward: Option<Uint128>,
+        nft_token_id: Option<String>,
     },
     PlayerStats {
         info: String // TODO:

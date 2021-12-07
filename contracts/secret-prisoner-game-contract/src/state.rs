@@ -168,6 +168,9 @@ pub struct GameState {
     pub round_state: Option<RoundState>,
     pub finished: bool,
     pub result: Option<u8>,
+
+    pub jackpot_reward: Option<u128>,
+    pub nft_token_id: Option<String>,
 }
 
 ///
@@ -195,6 +198,8 @@ fn store_new_game<S: Storage>(
         round_state: None,
         finished: false,
         result: None,
+        jackpot_reward: None,
+        nft_token_id: None,
     };
     storage.push(&game_state)?;
     Ok(storage.len()-1)

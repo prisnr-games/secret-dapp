@@ -881,7 +881,6 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     let player = deps.api.canonical_address(&env.message.sender)?;
     let mut messages: Vec<CosmosMsg> = vec![];
-    let mut token_id: Option<String> = None;
 
     if reward != "nft" && reward != "pool" {
         return Err(StdError::generic_err("Invalid reward selection"));
@@ -959,7 +958,8 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
             // give out rewards
 
             // prepare the nft
-            token_id = Some(format!("game-badge-{}", current_game.unwrap()));
+            let token_id = Some(format!("game-badge-{}", current_game.unwrap()));
+            game_state.nft_token_id = token_id.clone();
             let name = format!("prisnr.games");
             let random_bytes: [u8; 8] = get_random_number(&deps.storage).to_be_bytes();
             let rgb = format!("{:x?}{:x?}{:x?}", random_bytes[0], random_bytes[1], random_bytes[2]);
@@ -1009,6 +1009,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
             // jackpot is equal to half of the current pool
             let current_pool = get_pool(&deps.storage)?;
             let jackpot = current_pool / 2;
+            game_state.jackpot_reward = Some(jackpot);
             if player_a_reward_pick == REWARD_POOL {
                 game_state.result = Some(GameResult::AJackpotBNft.u8_val());
                 if jackpot > 0 {
@@ -1075,7 +1076,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages,
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::PickReward { status: Success, token_id, game_state: Some(game_state_response) })?),
+        data: Some(to_binary(&HandleAnswer::PickReward { status: Success, game_state: Some(game_state_response) })?),
     })
 }
 
@@ -1700,6 +1701,8 @@ fn get_game_state_response<S: Storage>(
     let mut pick_reward_round_start_block: Option<u64> = None;
     let mut finished: Option<bool> = None;
     let mut result: Option<String> = None;
+    let mut jackpot_reward: Option<Uint128> = None;
+    let mut nft_token_id: Option<String> = None;
 
     let current_game = get_current_game(storage, &player);
     if current_game.is_some() {
@@ -1716,8 +1719,10 @@ fn get_game_state_response<S: Storage>(
                     result = Some("you lost wager".to_string());
                 } else if game_result == GameResult::AJackpotBNft {
                     result = Some("you won jackpot".to_string());
+                    jackpot_reward = Some(Uint128(game_state.jackpot_reward.unwrap_or(0)));
                 } else if game_result == GameResult::ANftBJackpot {
                     result = Some("you won nft".to_string());
+                    nft_token_id = game_state.nft_token_id;
                 } else if game_result == GameResult::NoReward {
                     result = Some("you lost reward".to_string());
                 }
@@ -1797,8 +1802,10 @@ fn get_game_state_response<S: Storage>(
                     result = Some("you lost wager".to_string());
                 } else if game_result == GameResult::AJackpotBNft {
                     result = Some("you won nft".to_string());
+                    nft_token_id = game_state.nft_token_id;
                 } else if game_result == GameResult::ANftBJackpot {
                     result = Some("you won jackpot".to_string());
+                    jackpot_reward = Some(Uint128(game_state.jackpot_reward.unwrap_or(0)));
                 } else if game_result == GameResult::NoReward {
                     result = Some("you lost reward".to_string());
                 }
@@ -1894,6 +1901,8 @@ fn get_game_state_response<S: Storage>(
         pick_reward_round_start_block,
         finished,
         result,
+        jackpot_reward,
+        nft_token_id,
     })
 }
 
@@ -1929,6 +1938,8 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         pick_reward_round_start_block: game_state_response.pick_reward_round_start_block,
         finished: game_state_response.finished,
         result: game_state_response.result,
+        jackpot_reward: game_state_response.jackpot_reward,
+        nft_token_id: game_state_response.nft_token_id,
     };
     to_binary(&response)
 }
