@@ -1071,7 +1071,7 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
     // check if already in an ongoing game
     let current_game = get_current_game(&deps.storage, &player);
     if current_game.is_none() {
-        return Err(StdError::generic_err("You cannot pick a reward before joining a game"));
+        return Err(StdError::generic_err("You cannot withdraw before joining a game"));
     }
         
     let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
