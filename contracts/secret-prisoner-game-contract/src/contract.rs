@@ -1116,25 +1116,13 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         }));
     }
 
+    let game_state_response = get_game_state_response(&deps.storage, player)?;
+
     Ok(HandleResponse {
         messages,
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Withdraw { status: Success, })?),
+        data: Some(to_binary(&HandleAnswer::Withdraw { status: Success, game_state: Some(game_state_response), })?),
     })
-}
-
-fn check_timeout<S: Storage>(
-    storage: S,
-    game_state: GameState,
-    block_height: u64,
-) -> StdResult<()> {
-    // no timeout until both players have joined
-    if game_state.round > 0 {
-        if game_state.round == 1 && game_state.round_state.is_some() {
-            
-        }
-    }
-    Ok(())
 }
 
 pub fn try_force_endgame<S: Storage, A: Api, Q: Querier>(
@@ -1465,10 +1453,12 @@ pub fn try_force_endgame<S: Storage, A: Api, Q: Querier>(
     game_state.finished = true;
     update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
 
+    let game_state_response = get_game_state_response(&deps.storage, player)?;
+
     Ok(HandleResponse {
         messages,
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::ForceEndgame { status: Success, })?),
+        data: Some(to_binary(&HandleAnswer::ForceEndgame { status: Success, game_state: Some(game_state_response), })?),
     })
 }
 

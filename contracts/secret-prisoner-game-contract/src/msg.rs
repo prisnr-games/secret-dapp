@@ -157,10 +157,12 @@ pub enum HandleAnswer {
 
     Withdraw {
         status: ResponseStatus,
+        game_state: Option<GameStateResponse>,
     },
 
     ForceEndgame {
         status: ResponseStatus,
+        game_state: Option<GameStateResponse>,
     },
 
     BatchReceiveNft {
