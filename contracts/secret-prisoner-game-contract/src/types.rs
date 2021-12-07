@@ -15,11 +15,11 @@ pub const STAR: u8 = 0b00000001u8;
 pub const REWARD_NFT: u8 = 1;
 pub const REWARD_POOL: u8 = 2;
 
+/*
 pub fn is_bitmask_color(mask: u8) -> bool {
     mask & 0xf0 > 0
 }
 
-/*
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GameStage {
@@ -357,9 +357,11 @@ impl Hint {
         return self.u8_val() < 4 || (self.u8_val() > 7 && self.u8_val() < 12);
     }
 
+    /*
     pub fn is_shape(&self) -> bool {
         return !self.is_color();
     }
+    */
 
     pub fn from_u8(val: u8) -> StdResult<Hint> {
         match val {
@@ -422,6 +424,7 @@ impl Hint {
         }
     }
 
+    /*
     pub fn nobody_has_from_color(color: Color) -> Hint {
         match color {
             Color::Red => Hint::NobodyHasRed,
@@ -439,6 +442,7 @@ impl Hint {
             Shape::Star => Hint::NobodyHasStar,
         }
     }
+    */
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]

@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use secret_toolkit::{
     permit::{validate, Permission, Permit, RevokedPermits},
     snip721::{
-        mint_nft_msg, Metadata, set_viewing_key_msg, register_receive_nft_msg, set_minters_msg, private_metadata_query,
+        mint_nft_msg, Metadata, set_viewing_key_msg, register_receive_nft_msg, private_metadata_query,
         ViewerInfo, Extension,
     },
 };
@@ -19,8 +19,9 @@ use crate::state::{
     GameState, create_new_round, update_game_state, RoundState, Config, set_current_game, get_pool, set_pool,
     StoreContractInfo, set_minter, get_minter,
 };
-use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape, is_bitmask_color, GameResult,
-RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, REWARD_NFT, REWARD_POOL};
+use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape, GameResult,
+//RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, 
+REWARD_NFT, REWARD_POOL};
 
 /// We make sure that responses from `handle` are padded to a multiple of this size.
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
@@ -1655,6 +1656,7 @@ fn round_result_to_string(round_result: RoundResult) -> String {
     }
 }
 
+/*
 fn bitmask_to_string(bitmask: u8) -> String {
     match bitmask {
         RED => "color:red".to_string(),
@@ -1668,6 +1670,7 @@ fn bitmask_to_string(bitmask: u8) -> String {
         _ => "".to_string(),
     }
 }
+*/
 
 fn get_game_state_response<S: Storage>(
     storage: &S,
@@ -2037,55 +2040,5 @@ mod tests {
         let color = get_random_color(&deps.storage, &mut color_options, true);
         println!("{:?}", color);
     }
-    */
-/*
-    #[test]
-    fn increment() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // anyone can increment
-        let env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Increment {};
-        let _res = handle(&mut deps, env, msg).unwrap();
-
-        // should increase counter by 1
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(18, value.count);
-    }
-
-    #[test]
-    fn reset() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // not anyone can reset
-        let unauth_env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let res = handle(&mut deps, unauth_env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-
-        // only the original creator can reset the counter
-        let auth_env = mock_env("creator", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let _res = handle(&mut deps, auth_env, msg).unwrap();
-
-        // should now be 5
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(5, value.count);
-    }
-*/
-/*
 }
 */
