@@ -77,6 +77,11 @@ pub enum HandleMsg {
         padding: Option<String>,
     },
 
+    // Check if opponent has timed out and force endgame, if so
+    ForceEndgame {
+        padding: Option<String>,
+    },
+
     BatchReceiveNft {
         sender: HumanAddr,
         from: HumanAddr,
@@ -150,13 +155,17 @@ pub enum HandleAnswer {
         game_state: Option<GameStateResponse>,
     },
 
+    Withdraw {
+        status: ResponseStatus,
+    },
+
+    ForceEndgame {
+        status: ResponseStatus,
+    },
+
     BatchReceiveNft {
         status: ResponseStatus,
         game_state: Option<GameStateResponse>,
-    },
-
-    Withdraw {
-        status: ResponseStatus,
     },
 
     // Permit

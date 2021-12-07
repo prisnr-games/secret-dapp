@@ -161,6 +161,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         HandleMsg::Guess { target, color, shape, .. } => try_guess(deps, env, target, color, shape),
         HandleMsg::PickReward { reward, .. } => try_pick_reward(deps, env, reward),
         HandleMsg::Withdraw { .. } => try_withdraw(deps, env),
+        HandleMsg::ForceEndgame { .. } => try_force_endgame(deps, env),
         HandleMsg::BatchReceiveNft { sender, from, token_ids, msg } => try_receive_nft(deps, env, sender, from, token_ids, msg),
         HandleMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, env, permit_name),
     };
@@ -306,20 +307,6 @@ fn pick_extra_secret<S: Storage>(
             }
         }
     }
-}
-
-fn check_timeout<S: Storage>(
-    storage: S,
-    game_state: GameState,
-    block_height: u64,
-) -> StdResult<()> {
-    // no timeout until both players have joined
-    if game_state.round > 0 {
-        if game_state.round == 1 && game_state.round_state.is_some() {
-            
-        }
-    }
-    Ok(())
 }
 
 pub fn try_submit<S: Storage, A: Api, Q: Querier>(
@@ -1133,6 +1120,355 @@ pub fn try_withdraw<S: Storage, A: Api, Q: Querier>(
         messages,
         log: vec![],
         data: Some(to_binary(&HandleAnswer::Withdraw { status: Success, })?),
+    })
+}
+
+fn check_timeout<S: Storage>(
+    storage: S,
+    game_state: GameState,
+    block_height: u64,
+) -> StdResult<()> {
+    // no timeout until both players have joined
+    if game_state.round > 0 {
+        if game_state.round == 1 && game_state.round_state.is_some() {
+            
+        }
+    }
+    Ok(())
+}
+
+pub fn try_force_endgame<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> StdResult<HandleResponse> {
+    let player = deps.api.canonical_address(&env.message.sender)?;
+    let mut messages: Vec<CosmosMsg> = vec![];
+
+    // check if already in an ongoing game
+    let current_game = get_current_game(&deps.storage, &player);
+    if current_game.is_none() {
+        return Err(StdError::generic_err("You cannot force endgame before joining a game"));
+    }
+        
+    let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+
+    if game_state.finished {
+        return Err(StdError::generic_err("Game is finished, join a new game"));
+    }
+    
+    if game_state.round == 0 || game_state.round_state.is_none() {
+        return Err(StdError::generic_err("Cannot force endgame until another player has joined game"));
+    }
+
+    let config = get_config(&deps.storage)?;
+
+    // check if other player has timed out
+    if game_state.round < 3 {
+        // in assertion/guessing round
+        let round_state = game_state.clone().round_state.unwrap();
+        match RoundStage::from_u8(round_state.stage)? {
+            RoundStage::Initialized => {
+                if env.block.height < round_state.round_start_block + config.timeout {
+                    return Err(StdError::generic_err("Opponent has not timed out"));
+                }
+                // both players at risk of timeout
+                if player == game_state.player_a {
+                    // force endgame with b as timed out
+                    // refund player a wager
+                    if game_state.player_a_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_a_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player b wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_b_wager.unwrap_or(0))?;
+                } else if player == game_state.clone().player_b.unwrap() {
+                    // force endgame with a as timed out
+                    // refund player b wager
+                    if game_state.player_b_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_b_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player a wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_a_wager.unwrap_or(0))?;
+                }
+            },
+            RoundStage::OnePlayerFirstSubmit => {
+                if player == game_state.player_a {
+                    if round_state.player_b_first_submit_block.is_some() || env.block.height < round_state.round_start_block + config.timeout {
+                        return Err(StdError::generic_err("Opponent has not timed out"));
+                    }
+                    // player b has timed out
+                    // refund player a wager
+                    if game_state.player_a_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_a_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player b wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_b_wager.unwrap_or(0))?;                    
+                } else if player == game_state.clone().player_b.unwrap() {
+                    if round_state.player_a_first_submit_block.is_some() || env.block.height < round_state.round_start_block + config.timeout {
+                        return Err(StdError::generic_err("Opponent has not timed out"));
+                    }
+                    // player a has timed out
+                    // refund player b wager
+                    if game_state.player_b_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_b_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player a wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_a_wager.unwrap_or(0))?; 
+                }
+            },
+            RoundStage::BothPlayersFirstSubmit => {
+                let second_submit_turn_start_block = max(round_state.player_a_first_submit_block.unwrap(), round_state.player_b_first_submit_block.unwrap());
+                if env.block.height < second_submit_turn_start_block + config.timeout {
+                    return Err(StdError::generic_err("Opponent has not timed out"));
+                }
+                // both players at risk of timeout
+                if player == game_state.player_a {
+                    // force endgame with b as timed out
+                    // refund player a wager
+                    if game_state.player_a_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_a_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player b wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_b_wager.unwrap_or(0))?;
+                } else if player == game_state.clone().player_b.unwrap() {
+                    // force endgame with a as timed out
+                    // refund player b wager
+                    if game_state.player_b_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_b_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player a wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_a_wager.unwrap_or(0))?;
+                }
+            },
+            RoundStage::OnePlayerSecondSubmit => {
+                let second_submit_turn_start_block = max(round_state.player_a_first_submit_block.unwrap(), round_state.player_b_first_submit_block.unwrap());
+                if player == game_state.player_a {
+                    if round_state.player_b_second_submit_block.is_some() || env.block.height < second_submit_turn_start_block + config.timeout {
+                        return Err(StdError::generic_err("Opponent has not timed out"));
+                    }
+                    // player b has timed out
+                    // refund player a wager
+                    if game_state.player_a_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_a_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player b wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_b_wager.unwrap_or(0))?;                    
+                } else if player == game_state.clone().player_b.unwrap() {
+                    if round_state.player_a_second_submit_block.is_some() || env.block.height < second_submit_turn_start_block + config.timeout {
+                        return Err(StdError::generic_err("Opponent has not timed out"));
+                    }
+                    // player a has timed out
+                    // refund player b wager
+                    if game_state.player_b_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_b_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player a wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_a_wager.unwrap_or(0))?; 
+                }
+            },
+            RoundStage::BothPlayersSecondSubmit => {
+                let guess_turn_start_block = max(round_state.player_a_second_submit_block.unwrap(), round_state.player_b_second_submit_block.unwrap());
+                if env.block.height < guess_turn_start_block + config.timeout {
+                    return Err(StdError::generic_err("Opponent has not timed out"));
+                }
+                // both players at risk of timeout
+                if player == game_state.player_a {
+                    // force endgame with b as timed out
+                    // refund player a wager
+                    if game_state.player_a_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_a_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player b wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_b_wager.unwrap_or(0))?;
+                } else if player == game_state.clone().player_b.unwrap() {
+                    // force endgame with a as timed out
+                    // refund player b wager
+                    if game_state.player_b_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_b_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player a wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_a_wager.unwrap_or(0))?;
+                }
+            },
+            RoundStage::OnePlayerGuess => {
+                let guess_turn_start_block = max(round_state.player_a_second_submit_block.unwrap(), round_state.player_b_second_submit_block.unwrap());
+                if player == game_state.player_a {
+                    if round_state.player_b_guess_block.is_some() || env.block.height < guess_turn_start_block + config.timeout {
+                        return Err(StdError::generic_err("Opponent has not timed out"));
+                    }
+                    // player b has timed out
+                    // refund player a wager
+                    if game_state.player_a_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_a_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player b wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_b_wager.unwrap_or(0))?;                    
+                } else if player == game_state.clone().player_b.unwrap() {
+                    if round_state.player_a_guess_block.is_some() || env.block.height < guess_turn_start_block + config.timeout {
+                        return Err(StdError::generic_err("Opponent has not timed out"));
+                    }
+                    // player a has timed out
+                    // refund player b wager
+                    if game_state.player_b_wager.unwrap_or(0) > 0 {
+                        messages.push(CosmosMsg::Bank(BankMsg::Send {
+                            from_address: env.contract.address.clone(),
+                            to_address: deps.api.human_address(&player)?,
+                            amount: vec![Coin {
+                                denom: DENOM.to_string(),
+                                amount: Uint128(game_state.player_b_wager.unwrap()),
+                            }],
+                        }));
+                    }
+                    // send player a wager to pool
+                    let current_pool = get_pool(&deps.storage)?;
+                    set_pool(&mut deps.storage, current_pool + game_state.player_a_wager.unwrap_or(0))?; 
+                }
+            },
+            _ => { 
+                // if round is finished and not round 3 then game is finished 
+            }
+        }
+    } else if game_state.round == 3 {
+        // in pick reward round
+        let round_state = game_state.clone().round_state.unwrap();
+        let pick_reward_round_start_block = max(round_state.player_a_guess_block.unwrap(), round_state.player_b_guess_block.unwrap());
+        if player == game_state.player_a {
+            if game_state.player_b_reward_pick_block.is_some() || env.block.height < pick_reward_round_start_block + config.timeout {
+                return Err(StdError::generic_err("Opponent has not timed out"));
+            }
+            // player b has timed out
+            // refund player a wager
+            if game_state.player_a_wager.unwrap_or(0) > 0 {
+                messages.push(CosmosMsg::Bank(BankMsg::Send {
+                    from_address: env.contract.address.clone(),
+                    to_address: deps.api.human_address(&player)?,
+                    amount: vec![Coin {
+                        denom: DENOM.to_string(),
+                        amount: Uint128(game_state.player_a_wager.unwrap()),
+                    }],
+                }));
+            }
+            // send player b wager to pool
+            let current_pool = get_pool(&deps.storage)?;
+            set_pool(&mut deps.storage, current_pool + game_state.player_b_wager.unwrap_or(0))?; 
+        } else if player == game_state.clone().player_b.unwrap() {
+            if game_state.player_a_reward_pick_block.is_some() || env.block.height < pick_reward_round_start_block + config.timeout {
+                return Err(StdError::generic_err("Opponent has not timed out"));
+            }
+            // player a has timed out
+            // refund player b wager
+            if game_state.player_b_wager.unwrap_or(0) > 0 {
+                messages.push(CosmosMsg::Bank(BankMsg::Send {
+                    from_address: env.contract.address.clone(),
+                    to_address: deps.api.human_address(&player)?,
+                    amount: vec![Coin {
+                        denom: DENOM.to_string(),
+                        amount: Uint128(game_state.player_b_wager.unwrap()),
+                    }],
+                }));
+            }
+            // send player a wager to pool
+            let current_pool = get_pool(&deps.storage)?;
+            set_pool(&mut deps.storage, current_pool + game_state.player_a_wager.unwrap_or(0))?; 
+        }
+    } else {
+        return Err(StdError::generic_err("Invalid round error"));
+    }
+    
+    game_state.finished = true;
+    update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
+
+    Ok(HandleResponse {
+        messages,
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::ForceEndgame { status: Success, })?),
     })
 }
 
