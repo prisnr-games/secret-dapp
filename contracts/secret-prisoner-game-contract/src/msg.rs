@@ -138,6 +138,7 @@ pub enum HandleAnswer {
 
     PickReward {
         status: ResponseStatus,
+        token_id: Option<String>,
         game_state: Option<GameStateResponse>,
     },
 

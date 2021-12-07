@@ -862,6 +862,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     let player = deps.api.canonical_address(&env.message.sender)?;
     let mut messages: Vec<CosmosMsg> = vec![];
+    let mut token_id: Option<String> = None;
 
     if reward != "nft" && reward != "pool" {
         return Err(StdError::generic_err("Invalid reward selection"));
@@ -939,6 +940,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
             // give out rewards
 
             // prepare the nft
+            token_id = Some(format!("game-badge-{}", current_game.unwrap()));
             let name = format!("prisnr.games");
             let random_bytes: [u8; 8] = get_random_number(&deps.storage).to_be_bytes();
             let rgb = format!("{:x?}{:x?}{:x?}", random_bytes[0], random_bytes[1], random_bytes[2]);
@@ -1004,7 +1006,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
                 // mint and send NFT to player b
                 let nft_owner: Option<HumanAddr> = Some(deps.api.human_address(&game_state.player_b.clone().unwrap())?);
                 let cosmos_msg = mint_nft_msg(
-                    None, 
+                    token_id.clone(), 
                     nft_owner, 
                     public_metadata, 
                     private_metadata, 
@@ -1030,7 +1032,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
                 // mint and send NFT to player a
                 let nft_owner: Option<HumanAddr> = Some(deps.api.human_address(&game_state.player_a)?);
                 let cosmos_msg = mint_nft_msg(
-                    None, 
+                    token_id.clone(), 
                     nft_owner, 
                     public_metadata, 
                     private_metadata, 
@@ -1054,7 +1056,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages,
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::PickReward { status: Success, game_state: Some(game_state_response) })?),
+        data: Some(to_binary(&HandleAnswer::PickReward { status: Success, token_id, game_state: Some(game_state_response) })?),
     })
 }
 
