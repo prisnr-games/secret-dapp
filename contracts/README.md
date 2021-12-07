@@ -67,7 +67,7 @@ Now let's create the minter contract for secret prisoner powerup nfts.
 
 ```sh
 cd code/secret-prisoner-minter
-secretd tx compute store contract.wasm.gz --from a --gas 4300000 -y --keyring-backend test
+secretd tx compute store contract.wasm.gz --from a --gas 4500000 -y --keyring-backend test
 ```
 
 We initialize the minter contract
