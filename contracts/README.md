@@ -120,7 +120,7 @@ On the local dev network the second uploaded contract should have the following 
 
 ```sh
 CONTRACT=secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf
-CODE_HASH=4e1962b82a2bac958c1bb92fe7283cea94dce967d74d267eaa2ce3b43b9b43cf
+CODE_HASH=22eaf12934d311280d09085cde333798979240f9e5f9be155d1a247a965c1aa6
 ```
 
 ### Set game contract as a minter
