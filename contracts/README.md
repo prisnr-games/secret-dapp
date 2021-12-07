@@ -241,7 +241,19 @@ secretd tx sign-doc ./permit.json --from a > ./sig-a.json
 To execute a game status query with permit for player a:
 
 ```sh
-secretd q compute query secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg '{"with_permit":{"query":{"game_state":{}},"permit":{"params":{"permit_name":"Scrt Prisoners","allowed_tokens":["secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"],"chain_id":"secretdev-1","permissions":["owner"]},"signature":'"$(cat ./sig-a.json)"'}}}'
+secretd q compute query $CONTRACT '{"with_permit":{"query":{"game_state":{}},"permit":{"params":{"permit_name":"Scrt Prisoners","allowed_tokens":["secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf","secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"],"chain_id":"secretdev-1","permissions":["owner"]},"signature":'"$(cat ./sig-a.json)"'}}}'
 ```
 
 Repeat the same for player b replacing `--from a` with `--from b` and `sig-a.json` with `sig-b.json`.
+
+### Querying for tokens that player a owns in minter
+
+```sh
+secretd q compute query $MINTER_CONTRACT '{"with_permit":{"query":{"tokens":{"owner":"secret..."}},"permit":{"permit_name":"Scrt Prisoners","allowed_tokens":["secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf","secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"],"chain_id":"secretdev-1","permissions":["owner"]},"signature":'"$(cat ./sig-a.json)"'}}}'
+```
+
+### Querying private metadata of a token
+
+```sh
+secretd q compute query $MINTER_CONTRACT '{"with_permit":{"query":{"private_metadata":{"token_id":"secret..."}},"permit":{"permit_name":"Scrt Prisoners","allowed_tokens":["secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf","secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"],"chain_id":"secretdev-1","permissions":["owner"]},"signature":'"$(cat ./sig-a.json)"'}}}'
+```

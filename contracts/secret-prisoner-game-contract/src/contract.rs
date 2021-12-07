@@ -1105,7 +1105,7 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
     )?;
     if priv_meta.extension.is_some() {
         let extension = priv_meta.extension.unwrap();
-        // TODO: Do something with NFT!
+        // TODO: Handle powerup NFT
     } else {
         return Err(StdError::generic_err("Invalid private metadata for powerup nft"));
     }
