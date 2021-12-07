@@ -308,6 +308,20 @@ fn pick_extra_secret<S: Storage>(
     }
 }
 
+fn check_timeout<S: Storage>(
+    storage: S,
+    game_state: GameState,
+    block_height: u64,
+) -> StdResult<()> {
+    // no timeout until both players have joined
+    if game_state.round > 0 {
+        if game_state.round == 1 && game_state.round_state.is_some() {
+            
+        }
+    }
+    Ok(())
+}
+
 pub fn try_submit<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -474,10 +488,14 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
-                if (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
-                   (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                let first_hint = Hint::from_u8(round_state.player_a_first_submit.unwrap())?;
+                if (first_hint.is_i_have() && hint.is_i_have()) || 
+                   (first_hint.is_nobody_has() && hint.is_nobody_has())
                 {
                     return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
+                if first_hint.to_bitmask() == hint.to_bitmask() {
+                    return Err(StdError::generic_err("Second assertion cannot contradict first assertion"));
                 }
                 round_state.player_a_second_submit = new_hint;
                 round_state.player_a_second_submit_block = Some(env.block.height);
@@ -493,10 +511,14 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                     )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
-                if (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
-                   (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                let first_hint = Hint::from_u8(round_state.player_b_first_submit.unwrap())?;
+                if (first_hint.is_i_have() && hint.is_i_have()) || 
+                   (first_hint.is_nobody_has() && hint.is_nobody_has())
                 {
                     return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
+                if first_hint.to_bitmask() == hint.to_bitmask() {
+                    return Err(StdError::generic_err("Second assertion cannot contradict first assertion"));
                 }
                 round_state.player_b_second_submit = new_hint;
                 round_state.player_b_second_submit_block = Some(env.block.height);
@@ -523,10 +545,14 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
             let new_hint = Some(hint.u8_val());
 
             if player == game_state.player_a && round_state.player_a_second_submit.is_none() {
-                if (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
-                   (Hint::from_u8(round_state.player_a_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                let first_hint = Hint::from_u8(round_state.player_a_first_submit.unwrap())?;
+                if (first_hint.is_i_have() && hint.is_i_have()) || 
+                   (first_hint.is_nobody_has() && hint.is_nobody_has())
                 {
                     return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
+                if first_hint.to_bitmask() == hint.to_bitmask() {
+                    return Err(StdError::generic_err("Second assertion cannot contradict first assertion"));
                 }
                 round_state.player_a_second_submit = new_hint;
                 round_state.player_a_second_submit_block = Some(env.block.height);
@@ -542,10 +568,14 @@ pub fn try_submit<S: Storage, A: Api, Q: Querier>(
                     )?;
                 }
             } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_second_submit.is_none() {
-                if (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_i_have() && hint.is_i_have()) || 
-                   (Hint::from_u8(round_state.player_b_first_submit.unwrap())?.is_nobody_has() && hint.is_nobody_has())
+                let first_hint = Hint::from_u8(round_state.player_b_first_submit.unwrap())?;
+                if (first_hint.is_i_have() && hint.is_i_have()) || 
+                   (first_hint.is_nobody_has() && hint.is_nobody_has())
                 {
                     return Err(StdError::generic_err("Assertions must have different targets: i_have and nobody_has"));
+                }
+                if first_hint.to_bitmask() == hint.to_bitmask() {
+                    return Err(StdError::generic_err("Second assertion cannot contradict first assertion"));
                 }
                 round_state.player_b_second_submit = new_hint;
                 round_state.player_b_second_submit_block = Some(env.block.height);
