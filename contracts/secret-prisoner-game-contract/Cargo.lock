@@ -518,7 +518,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "secret-toolkit-crypto",
  "secret-toolkit-incubator",
@@ -533,7 +533,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-crypto"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "cosmwasm-std",
  "libsecp256k1",
@@ -545,7 +545,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-incubator"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -557,7 +557,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-permit"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "cosmwasm-std",
  "remain",
@@ -572,7 +572,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-serialization"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "bincode2",
  "cosmwasm-std",
@@ -582,7 +582,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-snip20"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "cosmwasm-std",
  "schemars",
@@ -593,7 +593,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-snip721"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "cosmwasm-std",
  "schemars",
@@ -604,7 +604,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-storage"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -615,7 +615,7 @@ dependencies = [
 [[package]]
 name = "secret-toolkit-utils"
 version = "0.1.0"
-source = "git+https://github.com/darwinzer0/secret-toolkit?rev=561e841ddbb37b87c39e1afaad28d00761343688#561e841ddbb37b87c39e1afaad28d00761343688"
+source = "git+https://github.com/darwinzer0/secret-toolkit?rev=1862d0238af258da1ecf062ecae52a165e604b75#1862d0238af258da1ecf062ecae52a165e604b75"
 dependencies = [
  "cosmwasm-std",
  "schemars",

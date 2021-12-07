@@ -8,7 +8,7 @@ use secret_toolkit::{
     permit::{validate, Permission, Permit, RevokedPermits},
     snip721::{
         mint_nft_msg, Metadata, set_viewing_key_msg, register_receive_nft_msg, set_minters_msg, private_metadata_query,
-        ViewerInfo,
+        ViewerInfo, Extension,
     },
 };
 
@@ -939,11 +939,49 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
             // give out rewards
 
             // prepare the nft
-            let public_metadata: Option<Metadata> = None;
+            let name = format!("prisnr.games");
+            let random_bytes: [u8; 8] = get_random_number(&deps.storage).to_be_bytes();
+            let rgb = format!("{:x?}{:x?}{:x?}", random_bytes[0], random_bytes[1], random_bytes[2]);
+            let random_url = format!(
+                "{:x?}{:x?}{:x?}{:x?}{:x?}{:x?}{:x?}{:x?}", 
+                random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3], 
+                random_bytes[4], random_bytes[5], random_bytes[6], random_bytes[7]
+            );
+            let image = format!("https://prisnr.games/nft/{}/{}", random_url, current_game.unwrap());
+            let description = format!("Secret Prisoners game badge {}", current_game.unwrap());
+
+            let public_metadata: Option<Metadata> = Some(Metadata{
+                extension: Some(Extension{
+                    name: Some(name.clone()),
+                    description: None,
+                    image: None,
+                    background_color: Some(rgb.clone()),
+                    image_data: None,
+                    attributes: None,
+                    animation_url: None,
+                    youtube_url: None,
+                    external_url: None,
+                    media: None,
+                    protected_attributes: None,
+                }),
+                token_uri: None,
+            });
+
             let private_metadata: Option<Metadata> = Some(Metadata{
-                name: Some("lie detector".to_string()),
-                description: None,
-                image: None,
+                extension: Some(Extension{
+                    name: Some(name),
+                    description: Some(description),
+                    image: Some(image),
+                    background_color: Some(rgb),
+                    image_data: None,
+                    attributes: None,
+                    animation_url: None,
+                    youtube_url: None,
+                    external_url: None,
+                    media: None,
+                    protected_attributes: None,
+                }),
+                token_uri: None,
             });
             let minter: ContractInfo = get_minter(&deps.storage)?.to_humanized(&deps.api)?;
 
@@ -1063,8 +1101,8 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
         minter.code_hash,
         minter.address,
     )?;
-    if priv_meta.name.is_some() {
-        let powerup = priv_meta.name.unwrap();
+    if priv_meta.extension.is_some() {
+        let extension = priv_meta.extension.unwrap();
         // TODO: Do something with NFT!
     } else {
         return Err(StdError::generic_err("Invalid private metadata for powerup nft"));

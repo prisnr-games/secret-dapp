@@ -192,13 +192,13 @@ secretd tx compute execute $CONTRACT '{"guess":{"target":"opponent","shape":"cir
 Player `a` picks jackpot from the pool.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"pick_reward": {"reward": "pool"}}' --from a --keyring-backend test --gas 40000 -y
+secretd tx compute execute $CONTRACT '{"pick_reward": {"reward": "pool"}}' --from a --keyring-backend test --gas 100000 -y
 ```
 
 Player `b` picks nft.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"pick_reward": {"reward": "nft"}}' --from b --keyring-backend test --gas 40000 -y
+secretd tx compute execute $CONTRACT '{"pick_reward": {"reward": "nft"}}' --from b --keyring-backend test --gas 100000 -y
 ```
 
 ### Creating a query permit
@@ -216,6 +216,7 @@ echo '{
             "value": {
                 "permit_name": "Scrt Prisoners",
                 "allowed_tokens": [
+                    "secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf",
                     "secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg"
                 ],
                 "permissions": ["owner"]
