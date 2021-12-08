@@ -67,7 +67,7 @@ pub enum HandleMsg {
 
     // Pick a reward if round 3 has been entered
     PickReward {
-        // one of {"nft", "pool"}
+        // one of {"nft", "jackpot"}
         reward: String,
         padding: Option<String>,
     },
