@@ -610,48 +610,48 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
 
     let guess: Guess;
 
-    if target != "abstain" && (color.is_none() || shape.is_none()) {
-        return Err(StdError::generic_err("Invalid guess"));
-    }
-    let color_type: Color = match color.unwrap().as_str() {
-        "red" => Color::Red,
-        "green" => Color::Green,
-        "blue" => Color::Blue,
-        "black" => Color::Black,
-        _ => { return Err(StdError::generic_err("Invalid color")); }
-    };
-
-    let shape_type: Shape = match shape.unwrap().as_str() {
-        "triangle" => Shape::Triangle,
-        "square" => Shape::Square,
-        "circle" => Shape::Circle,
-        "star" => Shape::Star,
-        _ => { return Err(StdError::generic_err("Invalid shape")); }
-    };
-
-    match target.as_str() {
-        "bag" => {
-            guess = Guess {
-                target: Target::Bag,
-                color: Some(color_type),
-                shape: Some(shape_type),
-            };
-        },
-        "opponent" => {
-            guess = Guess {
-                target: Target::Opponent,
-                color: Some(color_type),
-                shape: Some(shape_type),
-            };
-        },
-        "abstain" => { 
-            guess = Guess {
-                target: Target::Abstain,
-                color: None,
-                shape: None,
-            };
-        },
-        _ => { return Err(StdError::generic_err("Invalid guess")); }
+    if target == "abstain" {
+        guess = Guess {
+            target: Target::Abstain,
+            color: None,
+            shape: None,
+        };
+    } else {
+        if color.is_none() || shape.is_none() {
+            return Err(StdError::generic_err("Invalid guess"));
+        }
+        let color_type: Color = match color.unwrap().as_str() {
+            "red" => Color::Red,
+            "green" => Color::Green,
+            "blue" => Color::Blue,
+            "black" => Color::Black,
+            _ => { return Err(StdError::generic_err("Invalid color")); }
+        };
+    
+        let shape_type: Shape = match shape.unwrap().as_str() {
+            "triangle" => Shape::Triangle,
+            "square" => Shape::Square,
+            "circle" => Shape::Circle,
+            "star" => Shape::Star,
+            _ => { return Err(StdError::generic_err("Invalid shape")); }
+        };
+        match target.as_str() {
+            "bag" => {
+                guess = Guess {
+                    target: Target::Bag,
+                    color: Some(color_type),
+                    shape: Some(shape_type),
+                };
+            },
+            "opponent" => {
+                guess = Guess {
+                    target: Target::Opponent,
+                    color: Some(color_type),
+                    shape: Some(shape_type),
+                };
+            },
+            _ => { return Err(StdError::generic_err("Invalid guess")); }
+        }
     }
 
     // check if already in an ongoing game
@@ -990,10 +990,12 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
                 }
             }
 
-            // check if game state is finished and nft has not been applied
-            // if so, send the nft back
-            // TODO: 
-            
+            // check if game state is finished and powerups have not been applied
+            // if so, send the nfts back to the respective owners
+            if game_state.finished {
+
+            }
+
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
         _ => { return Err(StdError::generic_err("Not a guess round")); }
@@ -1611,6 +1613,7 @@ pub fn try_force_endgame<S: Storage, A: Api, Q: Querier>(
 
 fn powerup_insurance(
     player: CanonicalAddr,
+    token_id: String,
     game_state: &mut GameState,
 ) -> StdResult<()> {
     let mut valid_round = false;
@@ -1636,8 +1639,10 @@ fn powerup_insurance(
 
     if player == game_state.player_a {
         game_state.player_a_powerup = Some(POWERUP_INSURANCE);
+        game_state.player_a_powerup_token_id = Some(token_id);
     } else if player == game_state.player_b.clone().unwrap() {
         game_state.player_b_powerup = Some(POWERUP_INSURANCE);
+        game_state.player_b_powerup_token_id = Some(token_id);
     }
 
     Ok(())
@@ -1696,7 +1701,7 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
         if extension.description.is_some() {
             let powerup = extension.description.unwrap();
             match powerup.as_str() {
-                "insurance" => powerup_insurance(player, &mut game_state)?,
+                "insurance" => powerup_insurance(player, token_ids[0].clone(), &mut game_state)?,
                 _ => { return Err(StdError::generic_err("You did not send a powerup nft")); }
             }
         }
