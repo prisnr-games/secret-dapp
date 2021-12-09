@@ -882,7 +882,7 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
     let player = deps.api.canonical_address(&env.message.sender)?;
     let mut messages: Vec<CosmosMsg> = vec![];
 
-    if reward != "nft" && reward != "pool" {
+    if reward != "nft" && reward != "jackpot" {
         return Err(StdError::generic_err("Invalid reward selection"));
     }
 
@@ -918,14 +918,14 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
         game_state.player_a_reward_pick_block = Some(env.block.height);
         if reward == "nft" {
             game_state.player_a_reward_pick = Some(REWARD_NFT);
-        } else if reward == "pool" {
+        } else if reward == "jackpot" {
             game_state.player_a_reward_pick = Some(REWARD_POOL);
         }
     } else if player == game_state.player_b.clone().unwrap() {
         game_state.player_b_reward_pick_block = Some(env.block.height);
         if reward == "nft" {
             game_state.player_b_reward_pick = Some(REWARD_NFT);
-        } else if reward == "pool" {
+        } else if reward == "jackpot" {
             game_state.player_b_reward_pick = Some(REWARD_POOL);
         }
     }
