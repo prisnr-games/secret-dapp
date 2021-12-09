@@ -1545,8 +1545,20 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
+        QueryMsg::PoolSize { } => query_pool_size(deps),
         QueryMsg::WithPermit { permit, query } => permit_queries(deps, permit, query),
     }
+}
+
+fn query_pool_size<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<Binary> {
+    let pool_size = get_pool(&deps.storage)?;
+    let response = QueryAnswer::PoolSize {
+        amount: Uint128(pool_size),
+        denom: DENOM.to_string(),
+    };
+    to_binary(&response)
 }
 
 fn permit_queries<S: Storage, A: Api, Q: Querier>(

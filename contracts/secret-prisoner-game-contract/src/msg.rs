@@ -181,6 +181,8 @@ pub enum HandleAnswer {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
+    PoolSize { },
+
     WithPermit {
         permit: Permit,
         query: QueryWithPermit,
@@ -200,6 +202,11 @@ pub enum QueryWithPermit {
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
+    PoolSize {
+        amount: Uint128,
+        denom: String,
+    },
+
     GameState {
         round: Option<u8>,
         wager: Option<Uint128>,
@@ -229,6 +236,7 @@ pub enum QueryAnswer {
         jackpot_reward: Option<Uint128>,
         nft_token_id: Option<String>,
     },
+
     PlayerStats {
         info: String // TODO:
     },
