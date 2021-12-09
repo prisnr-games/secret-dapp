@@ -969,7 +969,18 @@ pub fn try_pick_reward<S: Storage, A: Api, Q: Querier>(
                 random_bytes[4], random_bytes[5], random_bytes[6], random_bytes[7]
             );
             let image = format!("https://prisnr.games/nft/{}/{}", random_url, current_game.unwrap());
-            let description = format!("Secret Prisoners game badge {}", current_game.unwrap());
+
+            // description indicates any powerup feature
+            // "simple" = no puwerup feature (90% of all badges)
+            // "insurance" = Insurance powerup
+            let roll = get_random_number(&deps.storage) % 100;
+            let description: String;
+            if roll < 10 {
+                description = "insurance".to_string();
+            } else {
+                description = "simple".to_string();
+            }
+            // TODO: add more powerups
 
             let public_metadata: Option<Metadata> = Some(Metadata{
                 extension: Some(Extension{
@@ -1464,6 +1475,15 @@ pub fn try_force_endgame<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+fn powerup_insurance<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    player: &CanonicalAddr,
+    current_game: u32,
+    game_state: GameState,
+) -> StdResult<()> {
+    Ok(())
+}
+
 pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -1483,8 +1503,9 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
     if current_game.is_none() {
         return Err(StdError::generic_err("You cannot send a powerup nft before joining a game"));
     }
+    let current_game = current_game.unwrap();
         
-    let mut game_state: GameState = get_game_state(&deps.storage, current_game.unwrap())?;
+    let mut game_state: GameState = get_game_state(&deps.storage, current_game)?;
 
     if game_state.finished {
         return Err(StdError::generic_err("Game is finished, join a new game"));
@@ -1509,6 +1530,14 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
     )?;
     if priv_meta.extension.is_some() {
         let extension = priv_meta.extension.unwrap();
+        // check if it is a powerup nft
+        if extension.description.is_some() {
+            let powerup = extension.description.unwrap();
+            match powerup.as_str() {
+                "insurance" => powerup_insurance(deps, &player, current_game, game_state)?,
+                _ => { return Err(StdError::generic_err("You did not send a powerup nft")); }
+            }
+        }
         // TODO: Handle powerup NFT
     } else {
         return Err(StdError::generic_err("Invalid private metadata for powerup nft"));
