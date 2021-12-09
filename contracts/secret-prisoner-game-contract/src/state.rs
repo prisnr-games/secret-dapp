@@ -155,6 +155,11 @@ pub struct GameState {
     pub player_a_wager: Option<u128>,
     pub player_b_wager: Option<u128>,
 
+    pub player_a_powerup: Option<u16>,
+    pub player_a_powerup_applied: bool,
+    pub player_b_powerup: Option<u16>,
+    pub player_b_powerup_applied: bool,
+
     pub player_a_reward_pick: Option<u8>,
     pub player_a_reward_pick_block: Option<u64>,
     pub player_b_reward_pick: Option<u8>,
@@ -190,6 +195,10 @@ fn store_new_game<S: Storage>(
         player_b: None,
         player_a_wager: Some(wager),
         player_b_wager: None,
+        player_a_powerup: None,
+        player_a_powerup_applied: false,
+        player_b_powerup: None,
+        player_b_powerup_applied: false,
         player_a_reward_pick: None,
         player_a_reward_pick_block: None,
         player_b_reward_pick: None,

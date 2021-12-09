@@ -21,7 +21,7 @@ use crate::state::{
 };
 use crate::types::{Chip, Guess, Hint, RoundStage, RoundResult, Target, Color, Shape, GameResult,
 //RED, GREEN, BLUE, BLACK, TRIANGLE, SQUARE, CIRCLE, STAR, 
-REWARD_NFT, REWARD_POOL};
+REWARD_NFT, REWARD_POOL, POWERUP_INSURANCE,};
 
 /// We make sure that responses from `handle` are padded to a multiple of this size.
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
@@ -803,15 +803,48 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
                 {
                     // Player A WINS
                     game_state.result = Some(GameResult::AWon.u8_val());
-                    let winnings = game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
-                    messages.push(CosmosMsg::Bank(BankMsg::Send {
-                        from_address: env.contract.address,
-                        to_address: deps.api.human_address(&game_state.player_a)?,
-                        amount: vec![Coin {
-                            denom: DENOM.to_string(),
-                            amount: Uint128(winnings),
-                        }],
-                    }));
+
+                    // Check if B has applied Insurance powerup
+                    if game_state.player_b_powerup.is_some() && game_state.player_b_powerup.unwrap() == POWERUP_INSURANCE {
+                        // Yes, just refund wagers to both players
+                        let a_refund = game_state.player_a_wager.unwrap_or(0);
+                        if a_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address.clone(),
+                                to_address: deps.api.human_address(&game_state.player_a)?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(a_refund),
+                                }],
+                            }));
+                        }
+                        let b_refund = game_state.player_b_wager.unwrap_or(0);
+                        if b_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address,
+                                to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(b_refund),
+                                }],
+                            }));
+                        }
+
+                        game_state.player_b_powerup_applied = true;
+                    } else {
+                        // No, give winnings to player A
+                        let winnings = game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
+                        if winnings > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address,
+                                to_address: deps.api.human_address(&game_state.player_a)?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(winnings),
+                                }],
+                            }));
+                        }
+                    }
                 } else if (
                         player_b_round_result == RoundResult::BagCorrect && (
                         player_a_round_result == RoundResult::BagWrong || 
@@ -831,15 +864,47 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
                 {
                     // Player B WINS
                     game_state.result = Some(GameResult::BWon.u8_val());
-                    let winnings = game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
-                    messages.push(CosmosMsg::Bank(BankMsg::Send {
-                        from_address: env.contract.address,
-                        to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
-                        amount: vec![Coin {
-                            denom: DENOM.to_string(),
-                            amount: Uint128(winnings),
-                        }],
-                    }));
+
+                    // Check if A has applied Insurance powerup
+                    if game_state.player_a_powerup.is_some() && game_state.player_a_powerup.unwrap() == POWERUP_INSURANCE {
+                        // Yes, just refund wagers to both players
+                        let a_refund = game_state.player_a_wager.unwrap_or(0);
+                        if a_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address.clone(),
+                                to_address: deps.api.human_address(&game_state.player_a)?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(a_refund),
+                                }],
+                            }));
+                        }
+                        let b_refund = game_state.player_b_wager.unwrap_or(0);
+                        if b_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address,
+                                to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(b_refund),
+                                }],
+                            }));
+                        }
+
+                        game_state.player_a_powerup_applied = true;
+                    } else {
+                        let winnings = game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
+                        if winnings > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address,
+                                to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(winnings),
+                                }],
+                            }));
+                        }
+                    }
                 } else if (
                         player_a_round_result == RoundResult::BagWrong && (
                         player_b_round_result == RoundResult::BagWrong || 
@@ -852,14 +917,83 @@ pub fn try_guess<S: Storage, A: Api, Q: Querier>(
                 {
                     // Both LOSE
                     game_state.result = Some(GameResult::BothLose.u8_val());
-
-                    // record the increase in the pool
                     let mut pool = get_pool(&deps.storage)?;
-                    pool = pool + game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
-                    set_pool(&mut deps.storage, pool)?;
+                    let player_a_insurance: bool = game_state.player_a_powerup.is_some() && game_state.player_a_powerup.unwrap() == POWERUP_INSURANCE;
+                    let player_b_insurance: bool = game_state.player_b_powerup.is_some() && game_state.player_b_powerup.unwrap() == POWERUP_INSURANCE;
+
+                    // Check if players have applied Insurance powerup
+                    if player_a_insurance && player_b_insurance {
+                        // refund both players
+                        let a_refund = game_state.player_a_wager.unwrap_or(0);
+                        if a_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address.clone(),
+                                to_address: deps.api.human_address(&game_state.player_a)?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(a_refund),
+                                }],
+                            }));
+                        }
+                        game_state.player_a_powerup_applied = true;
+                        
+                        let b_refund = game_state.player_b_wager.unwrap_or(0);
+                        if b_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address,
+                                to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(b_refund),
+                                }],
+                            }));
+                        }
+                        game_state.player_b_powerup_applied = true;
+                    } else if player_a_insurance && !player_b_insurance {
+                        // refund player A, send B's wager to the pool
+                        let a_refund = game_state.player_a_wager.unwrap_or(0);
+                        if a_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address.clone(),
+                                to_address: deps.api.human_address(&game_state.player_a)?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(a_refund),
+                                }],
+                            }));
+                        }
+                        game_state.player_a_powerup_applied = true;
+                        pool = pool + game_state.player_b_wager.unwrap_or(0);
+                    } else if !player_a_insurance && player_b_insurance {
+                        // refund player B, send A's wager to the pool
+                        let b_refund = game_state.player_b_wager.unwrap_or(0);
+                        if b_refund > 0 {
+                            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                                from_address: env.contract.address,
+                                to_address: deps.api.human_address(&game_state.player_b.clone().unwrap())?,
+                                amount: vec![Coin {
+                                    denom: DENOM.to_string(),
+                                    amount: Uint128(b_refund),
+                                }],
+                            }));
+                        }
+                        game_state.player_b_powerup_applied = true;
+                        pool = pool + game_state.player_a_wager.unwrap_or(0);
+                    } else {
+                        // no Insurance applied, record the increase in the pool
+                        pool = pool + game_state.player_a_wager.unwrap_or(0) + game_state.player_b_wager.unwrap_or(0);
+                    }
+
+                    if !(player_a_insurance && player_b_insurance) {
+                        set_pool(&mut deps.storage, pool)?;
+                    }
                 }
             }
 
+            // check if game state is finished and nft has not been applied
+            // if so, send the nft back
+            // TODO: 
+            
             update_game_state(&mut deps.storage, current_game.unwrap(), &game_state)?;
         },
         _ => { return Err(StdError::generic_err("Not a guess round")); }
@@ -1475,12 +1609,37 @@ pub fn try_force_endgame<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-fn powerup_insurance<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    player: &CanonicalAddr,
-    current_game: u32,
-    game_state: GameState,
+fn powerup_insurance(
+    player: CanonicalAddr,
+    game_state: &mut GameState,
 ) -> StdResult<()> {
+    let mut valid_round = false;
+
+    if game_state.round == 0 {
+        valid_round = true;
+    } else if game_state.round == 1 {
+        if game_state.round_state.is_none() {
+            valid_round = true;
+        } else {
+            let round_state = game_state.round_state.clone().unwrap();
+            if player == game_state.player_a && round_state.player_a_first_submit.is_none() {
+                valid_round = true;
+            } else if player == game_state.player_b.clone().unwrap() && round_state.player_b_first_submit.is_none() {
+                valid_round = true;
+            }
+        }
+    }
+
+    if !valid_round {
+        return Err(StdError::generic_err("Invalid round for Insurance powerup"));
+    }
+
+    if player == game_state.player_a {
+        game_state.player_a_powerup = Some(POWERUP_INSURANCE);
+    } else if player == game_state.player_b.clone().unwrap() {
+        game_state.player_b_powerup = Some(POWERUP_INSURANCE);
+    }
+
     Ok(())
 }
 
@@ -1511,7 +1670,10 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Game is finished, join a new game"));
     }
 
-    let mut messages: Vec<CosmosMsg> = vec![];
+    if (player == game_state.player_a && game_state.player_a_powerup.is_some()) ||
+       (game_state.player_b.is_some() && player == game_state.player_b.clone().unwrap() && game_state.player_b_powerup.is_some()) {
+        return Err(StdError::generic_err("Can only apply one powerup nft per game"));
+    }
 
     let config = get_config(&deps.storage)?;
     let viewer = Some(ViewerInfo {
@@ -1534,17 +1696,16 @@ pub fn try_receive_nft<S: Storage, A: Api, Q: Querier>(
         if extension.description.is_some() {
             let powerup = extension.description.unwrap();
             match powerup.as_str() {
-                "insurance" => powerup_insurance(deps, &player, current_game, game_state)?,
+                "insurance" => powerup_insurance(player, &mut game_state)?,
                 _ => { return Err(StdError::generic_err("You did not send a powerup nft")); }
             }
         }
-        // TODO: Handle powerup NFT
     } else {
         return Err(StdError::generic_err("Invalid private metadata for powerup nft"));
     }
 
     Ok(HandleResponse {
-        messages,
+        messages: vec![],
         log: vec![],
         data: Some(to_binary(&HandleAnswer::BatchReceiveNft { status: Success, game_state: None })?),
     })
@@ -1706,6 +1867,13 @@ fn pick_to_string(pick: u8) -> String {
     }
 }
 
+fn powerup_to_string(powerup: u16) -> String {
+    match powerup {
+        POWERUP_INSURANCE => "insurance".to_string(),
+        _ => "".to_string(),
+    }
+}
+
 /*
 fn bitmask_to_string(bitmask: u8) -> String {
     match bitmask {
@@ -1731,6 +1899,7 @@ fn get_game_state_response<S: Storage>(
     let mut chip_color: Option<String> = None;
     let mut chip_shape: Option<String> = None;
     let mut hint: Option<String> = None;
+    let mut powerup: Option<String> = None;
     let mut first_round_start_block: Option<u64> = None;
     let mut first_submit: Option<String> = None;
     let mut first_submit_block: Option<u64> = None;
@@ -1750,6 +1919,7 @@ fn get_game_state_response<S: Storage>(
     let mut pick_reward_round_start_block: Option<u64> = None;
     let mut finished: Option<bool> = None;
     let mut result: Option<String> = None;
+    let mut opponent_powerup: Option<String> = None;
     let mut pick: Option<String> = None;
     let mut jackpot_reward: Option<Uint128> = None;
     let mut nft_token_id: Option<String> = None;
@@ -1761,6 +1931,9 @@ fn get_game_state_response<S: Storage>(
             wager = Some(Uint128(game_state.player_a_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
+            if game_state.player_a_powerup.is_some() {
+                powerup = Some(powerup_to_string(game_state.player_a_powerup.unwrap()));
+            }
             if game_state.player_a_reward_pick.is_some() {
                 pick = Some(pick_to_string(game_state.player_a_reward_pick.unwrap()));
             }
@@ -1778,6 +1951,11 @@ fn get_game_state_response<S: Storage>(
                     nft_token_id = game_state.nft_token_id;
                 } else if game_result == GameResult::NoReward {
                     result = Some("you lost reward".to_string());
+                }
+
+                // check if we should share opponent powerup
+                if game_state.player_b_powerup_applied {
+                    opponent_powerup = Some(powerup_to_string(game_state.player_b_powerup.unwrap()));
                 }
             }
             if game_state.round_state.is_some() {
@@ -1847,6 +2025,9 @@ fn get_game_state_response<S: Storage>(
             wager = Some(Uint128(game_state.player_b_wager.unwrap_or(0)));
             round = Some(game_state.round);
             finished = Some(game_state.finished);
+            if game_state.player_b_powerup.is_some() {
+                powerup = Some(powerup_to_string(game_state.player_b_powerup.unwrap()));
+            }
             if game_state.player_b_reward_pick.is_some() {
                 pick = Some(pick_to_string(game_state.player_b_reward_pick.unwrap()));
             }
@@ -1864,6 +2045,11 @@ fn get_game_state_response<S: Storage>(
                     jackpot_reward = Some(Uint128(game_state.jackpot_reward.unwrap_or(0)));
                 } else if game_result == GameResult::NoReward {
                     result = Some("you lost reward".to_string());
+                }
+
+                // check if we should share opponent powerup
+                if game_state.player_a_powerup_applied {
+                    opponent_powerup = Some(powerup_to_string(game_state.player_a_powerup.unwrap()));
                 }
             }
             if game_state.round_state.is_some() {
@@ -1938,6 +2124,7 @@ fn get_game_state_response<S: Storage>(
         chip_color,
         chip_shape,
         hint,
+        powerup,
         first_round_start_block,
         first_submit,
         first_submit_block,
@@ -1957,6 +2144,7 @@ fn get_game_state_response<S: Storage>(
         pick_reward_round_start_block,
         finished,
         result,
+        opponent_powerup,
         pick,
         jackpot_reward,
         nft_token_id,
@@ -1976,6 +2164,7 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         chip_color: game_state_response.chip_color,
         chip_shape: game_state_response.chip_shape,
         hint: game_state_response.hint,
+        powerup: game_state_response.powerup,
         first_round_start_block: game_state_response.first_round_start_block,
         first_submit: game_state_response.first_submit,
         first_submit_block: game_state_response.first_submit_block,
@@ -1995,6 +2184,7 @@ fn query_game_state<S: Storage, A: Api, Q: Querier>(
         pick_reward_round_start_block: game_state_response.pick_reward_round_start_block,
         finished: game_state_response.finished,
         result: game_state_response.result,
+        opponent_powerup: game_state_response.opponent_powerup,
         pick: game_state_response.pick,
         jackpot_reward: game_state_response.jackpot_reward,
         nft_token_id: game_state_response.nft_token_id,

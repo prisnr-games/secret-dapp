@@ -15,6 +15,8 @@ pub const STAR: u8 = 0b00000001u8;
 pub const REWARD_NFT: u8 = 1;
 pub const REWARD_POOL: u8 = 2;
 
+pub const POWERUP_INSURANCE: u16 = 1;
+
 /*
 pub fn is_bitmask_color(mask: u8) -> bool {
     mask & 0xf0 > 0
