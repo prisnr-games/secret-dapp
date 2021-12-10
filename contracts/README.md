@@ -91,7 +91,7 @@ To load the contract in the container shell enter:
 
 ```sh
 cd ../secret-prisoner-game-contract
-secretd tx compute store contract.wasm.gz --from a --gas 3000000 -y --keyring-backend test
+secretd tx compute store contract.wasm.gz --from a --gas 4000000 -y --keyring-backend test
 ```
 
 You can confirm that the contract was uploaded by querying the transaction hash:
@@ -120,7 +120,7 @@ On the local dev network the second uploaded contract should have the following 
 
 ```sh
 CONTRACT=secret10pyejy66429refv3g35g2t7am0was7ya6hvrzf
-CODE_HASH=7c98f9e086e687e8f920dc6c0bee01a88c8097223d53bd494ffb7b8bfec4f364
+CODE_HASH=8e0d4273f021b4367f797c929f5d28bf97912fb77664d043ffe019274ccff70a
 ```
 
 ### Set game contract as a minter
@@ -138,13 +138,13 @@ Each player can interact with the player by sending `join`, `submit`, `guess`, a
 Player `a` joining a game, sending 1 SCRT wager.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"join":{}}' --from a --keyring-backend test --gas 35000 --amount 1000000uscrt -y
+secretd tx compute execute $CONTRACT '{"join":{}}' --from a --keyring-backend test --gas 40000 --amount 1000000uscrt -y
 ```
 
 Player `b` joining a game, sending 1 SCRT wager.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend test --gas 35000 --amount 1000000uscrt -y
+secretd tx compute execute $CONTRACT '{"join":{}}' --from b --keyring-backend test --gas 40000 --amount 1000000uscrt -y
 ```
 
 ### Submitting hints to other player
@@ -178,13 +178,13 @@ secretd tx compute execute $CONTRACT '{"submit":{"target":"i_have","shape":"star
 Player `a` guesses bag is green triangle.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"guess":{"target":"bag","shape":"triangle","color":"green"}}' --from a --keyring-backend test --gas 40000 -y
+secretd tx compute execute $CONTRACT '{"guess":{"target":"bag","shape":"triangle","color":"green"}}' --from a --keyring-backend test --gas 50000 -y
 ```
 
 Player `b` guesses player `a` has a blue circle.
 
 ```sh
-secretd tx compute execute $CONTRACT '{"guess":{"target":"opponent","shape":"circle","color":"blue"}}' --from b --keyring-backend test --gas 40000 -y
+secretd tx compute execute $CONTRACT '{"guess":{"target":"opponent","shape":"circle","color":"blue"}}' --from b --keyring-backend test --gas 50000 -y
 ```
 
 ### Picking reward
