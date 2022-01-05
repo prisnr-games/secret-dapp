@@ -111,7 +111,6 @@ pub fn get_random_shape<S: Storage>(storage: &S, shape_options: &mut Vec<Shape>,
     debug_print(format!("shape weight total: {}", total));
 
     let roll = get_random_number(storage) % total;
-    println!("{}", roll);
     debug_print(format!("shape roll: {}", roll));
 
     let mut interval_start = 0_u64;
